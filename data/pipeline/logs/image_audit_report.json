@@ -1,0 +1,12 @@
+{
+ "manifestSuccessTotal": 16871,
+ "corruptOnDisk": [],
+ "missingFileOnDisk": [],
+ "orphanCardKeysInMap": [],
+ "orphanCardKeysInMapCount": 0,
+ "orphanSpeciesKeysInMap": [],
+ "orphanSpeciesKeysInMapCount": 0,
+ "cardsWithSourceButNotInMap": [],
+ "cardsWithSourceButNotInMapCount": 0,
+ "speciesNotInMap": []
+}

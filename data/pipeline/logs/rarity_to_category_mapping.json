@@ -1,0 +1,48 @@
+{
+ "NORMAL": {
+  "Double rare": 739,
+  "Common": 3691,
+  "Uncommon": 2822,
+  "Rare": 1154,
+  "Holo Rare": 303,
+  "ACE SPEC Rare": 47
+ },
+ "SR": {
+  "Triple Rare": 65,
+  "Radiant Rare": 27,
+  "Holo Rare V": 237,
+  "Holo Rare VMAX": 92,
+  "Amazing Rare": 9,
+  "Shiny rare": 224,
+  "Shiny rare V": 9,
+  "Shiny rare VMAX": 7,
+  "Holo Rare VSTAR": 32
+ },
+ "UR": {
+  "Ultra Rare": 1113,
+  "Mega Hyper Rare": 84,
+  "Hyper rare": 108,
+  "Secret Rare": 335,
+  "Black White Rare": 6,
+  "Full Art Trainer": 6,
+  "Shiny Ultra Rare": 12
+ },
+ "CHR": {
+  "Character Rare": 40
+ },
+ "CSR": {
+  "Character Super Rare": 46
+ },
+ "AR": {
+  "Illustration rare": 856
+ },
+ "SAR": {
+  "Special illustration rare": 363
+ },
+ "PROMO": {
+  "Promo": 1040
+ },
+ "OTHER": {
+  "Classic Collection": 25
+ }
+}

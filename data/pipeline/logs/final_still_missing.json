@@ -1,0 +1,398 @@
+[
+ {
+  "cardId": "tcgdex:ja:MC-DAR",
+  "name": "基本悪エネルギー",
+  "setId": "MC",
+  "cardNumber": "DAR",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/DAR）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E6%82%AA%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:ja:MC-FIG",
+  "name": "基本闘エネルギー",
+  "setId": "MC",
+  "cardNumber": "FIG",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/FIG）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E9%97%98%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:ja:MC-FIR",
+  "name": "基本炎エネルギー",
+  "setId": "MC",
+  "cardNumber": "FIR",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/FIR）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E7%82%8E%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:ja:MC-GRA",
+  "name": "基本草エネルギー",
+  "setId": "MC",
+  "cardNumber": "GRA",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/GRA）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E8%8D%89%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:ja:MC-LIG",
+  "name": "基本雷エネルギー",
+  "setId": "MC",
+  "cardNumber": "LIG",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/LIG）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E9%9B%B7%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:ja:MC-MET",
+  "name": "基本鋼エネルギー",
+  "setId": "MC",
+  "cardNumber": "MET",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/MET）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E9%8B%BC%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:ja:MC-PSY",
+  "name": "基本超エネルギー",
+  "setId": "MC",
+  "cardNumber": "PSY",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/PSY）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E8%B6%85%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:ja:MC-WAT",
+  "name": "基本水エネルギー",
+  "setId": "MC",
+  "cardNumber": "WAT",
+  "language": "ja",
+  "reason": "TCGdex 無圖；LimitlessTCG 日文資料庫該頁面不存在（https://limitlesstcg.com/cards/jp/MC/WAT）",
+  "manualCheckUrl": "https://www.pokemon-card.com/card-search/index.php?keyword=%E5%9F%BA%E6%9C%AC%E6%B0%B4%E3%82%A8%E3%83%8D%E3%83%AB%E3%82%AE%E3%83%BC"
+ },
+ {
+  "cardId": "tcgdex:en:svp-500",
+  "name": "Terapagos & Friends",
+  "setId": "svp",
+  "cardNumber": "500",
+  "language": "en",
+  "reason": "TCGdex 無圖；LimitlessTCG 該頁面不存在（https://limitlesstcg.com/cards/SVP/500）",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Terapagos%20%26%20Friends"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-1",
+  "name": "Bulbasaur",
+  "setId": "mfb",
+  "cardNumber": "1",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Bulbasaur"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-2",
+  "name": "Ivysaur",
+  "setId": "mfb",
+  "cardNumber": "2",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Ivysaur"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-3",
+  "name": "Oddish",
+  "setId": "mfb",
+  "cardNumber": "3",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Oddish"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-4",
+  "name": "Gloom",
+  "setId": "mfb",
+  "cardNumber": "4",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Gloom"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-5",
+  "name": "Exeggcute",
+  "setId": "mfb",
+  "cardNumber": "5",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Exeggcute"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-6",
+  "name": "Exeggutor",
+  "setId": "mfb",
+  "cardNumber": "6",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Exeggutor"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-7",
+  "name": "Scyther",
+  "setId": "mfb",
+  "cardNumber": "7",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Scyther"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-8",
+  "name": "Grass Energy",
+  "setId": "mfb",
+  "cardNumber": "8",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Grass%20Energy"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-9",
+  "name": "Charmander",
+  "setId": "mfb",
+  "cardNumber": "9",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Charmander"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-10",
+  "name": "Charmeleon",
+  "setId": "mfb",
+  "cardNumber": "10",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Charmeleon"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-11",
+  "name": "Vulpix",
+  "setId": "mfb",
+  "cardNumber": "11",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Vulpix"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-12",
+  "name": "Ninetales",
+  "setId": "mfb",
+  "cardNumber": "12",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Ninetales"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-13",
+  "name": "Growlithe",
+  "setId": "mfb",
+  "cardNumber": "13",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Growlithe"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-14",
+  "name": "Arcanine",
+  "setId": "mfb",
+  "cardNumber": "14",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Arcanine"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-15",
+  "name": "Magmar",
+  "setId": "mfb",
+  "cardNumber": "15",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Magmar"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-16",
+  "name": "Fire Energy",
+  "setId": "mfb",
+  "cardNumber": "16",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Fire%20Energy"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-17",
+  "name": "Pikachu",
+  "setId": "mfb",
+  "cardNumber": "17",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Pikachu"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-18",
+  "name": "Raichu",
+  "setId": "mfb",
+  "cardNumber": "18",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Raichu"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-19",
+  "name": "Magnemite",
+  "setId": "mfb",
+  "cardNumber": "19",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Magnemite"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-20",
+  "name": "Magneton",
+  "setId": "mfb",
+  "cardNumber": "20",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Magneton"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-21",
+  "name": "Voltorb",
+  "setId": "mfb",
+  "cardNumber": "21",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Voltorb"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-22",
+  "name": "Electrode",
+  "setId": "mfb",
+  "cardNumber": "22",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Electrode"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-23",
+  "name": "Electabuzz",
+  "setId": "mfb",
+  "cardNumber": "23",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Electabuzz"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-24",
+  "name": "Lightning Energy",
+  "setId": "mfb",
+  "cardNumber": "24",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Lightning%20Energy"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-25",
+  "name": "Squirtle",
+  "setId": "mfb",
+  "cardNumber": "25",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Squirtle"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-26",
+  "name": "Wartortle",
+  "setId": "mfb",
+  "cardNumber": "26",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Wartortle"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-27",
+  "name": "Poliwag",
+  "setId": "mfb",
+  "cardNumber": "27",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Poliwag"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-28",
+  "name": "Poliwhirl",
+  "setId": "mfb",
+  "cardNumber": "28",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Poliwhirl"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-29",
+  "name": "Magikarp",
+  "setId": "mfb",
+  "cardNumber": "29",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Magikarp"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-30",
+  "name": "Gyarados",
+  "setId": "mfb",
+  "cardNumber": "30",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Gyarados"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-31",
+  "name": "Lapras",
+  "setId": "mfb",
+  "cardNumber": "31",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Lapras"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-32",
+  "name": "Water Energy",
+  "setId": "mfb",
+  "cardNumber": "32",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Water%20Energy"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-33",
+  "name": "Potion",
+  "setId": "mfb",
+  "cardNumber": "33",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Potion"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-34",
+  "name": "Switch",
+  "setId": "mfb",
+  "cardNumber": "34",
+  "language": "en",
+  "reason": "TCGdex 無圖；My First Battle 這個產品 Limitless 沒有收錄",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Switch"
+ },
+ {
+  "cardId": "tcgdex:en:mep-Museum",
+  "name": "Pikachu at the Museum",
+  "setId": "mep",
+  "cardNumber": "Museum",
+  "language": "en",
+  "reason": "TCGdex 無圖；LimitlessTCG 該頁面不存在（https://limitlesstcg.com/cards/MEP/Museum）",
+  "manualCheckUrl": "https://www.pokellector.com/search?search=Pikachu%20at%20the%20Museum"
+ }
+]

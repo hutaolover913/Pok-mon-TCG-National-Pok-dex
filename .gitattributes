@@ -1,0 +1,10 @@
+# 在 Windows 開發、可能在其他平台 clone：統一由 git 處理換行，
+# 避免整個檔案因為 CRLF/LF 差異被判定成「全部都改了」。
+* text=auto
+
+# 二進位檔不要做換行轉換（轉了會壞檔）
+*.png binary
+*.jpg binary
+*.webp binary
+*.docx binary
+*.ico binary

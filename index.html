@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>寶可夢 PTCG 全圖鑑收藏</title>
+  <meta name="description" content="依全國圖鑑整理寶可夢 PTCG 卡片收藏的個人化圖鑑 App" />
+  <meta name="theme-color" content="#14151c" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/favicon.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="boot-loading" class="boot-loading">
+    <div class="boot-spinner"></div>
+    <p>載入圖鑑資料中…</p>
+  </div>
+
+  <main id="app" class="app hidden"></main>
+
+  <nav class="bottom-nav hidden">
+    <a href="#/" data-path="/" class="active">
+      <span class="nav-icon">📖</span><span>圖鑑</span>
+    </a>
+    <a href="#/types" data-path="/types">
+      <span class="nav-icon">🏷️</span><span>卡片分類</span>
+    </a>
+    <a href="#/collection" data-path="/collection">
+      <span class="nav-icon">🗂️</span><span>我的收藏</span>
+    </a>
+    <a href="#/missing" data-path="/missing">
+      <span class="nav-icon">📋</span><span>缺卡清單</span>
+    </a>
+    <a href="#/settings" data-path="/settings">
+      <span class="nav-icon">⚙️</span><span>設定</span>
+    </a>
+  </nav>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,622 @@
+[
+ {
+  "cardId": "tcgdex:en:svp-500",
+  "chosen": {
+   "path": "images/candidates/en_svp-500__1.webp",
+   "number": "No. 500",
+   "setName": "Scarlet & Violet Promos",
+   "title": "Terapagos & Friends (Scarlet & Violet Promos No. 500)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/46604/terapagos-and-friends-scarlet-and-violet-promos-no-500",
+   "pixels": "788x1104"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-1",
+  "chosen": {
+   "path": "images/candidates/en_mfb-1__1.jpg",
+   "number": "No. 001",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Bulbasaur (My First Battle (Bulbasaur) No. 001)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42763/bulbasaur-my-first-battle-bulbasaur-no-001",
+   "pixels": "960x1346"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-1__2.jpg",
+    "number": "No. 003",
+    "setName": "My First Battle (Bulbasaur)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-2",
+  "chosen": {
+   "path": "images/candidates/en_mfb-2__1.jpg",
+   "number": "No. 004",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Ivysaur (My First Battle (Bulbasaur) No. 004)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42765/ivysaur-my-first-battle-bulbasaur-no-004",
+   "pixels": "960x1341"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-3",
+  "chosen": {
+   "path": "images/candidates/en_mfb-3__1.jpg",
+   "number": "No. 005",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Oddish (My First Battle (Bulbasaur) No. 005)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42766/oddish-my-first-battle-bulbasaur-no-005",
+   "pixels": "960x1344"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-4",
+  "chosen": {
+   "path": "images/candidates/en_mfb-4__1.jpg",
+   "number": "No. 006",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Gloom (My First Battle (Bulbasaur) No. 006)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42767/gloom-my-first-battle-bulbasaur-no-006",
+   "pixels": "960x1344"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-5",
+  "chosen": {
+   "path": "images/candidates/en_mfb-5__1.jpg",
+   "number": "No. 007",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Exeggcute (My First Battle (Bulbasaur) No. 007)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42768/exeggcute-my-first-battle-bulbasaur-no-007",
+   "pixels": "960x1340"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-6",
+  "chosen": {
+   "path": "images/candidates/en_mfb-6__1.jpg",
+   "number": "No. 008",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Exeggutor (My First Battle (Bulbasaur) No. 008)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42769/exeggutor-my-first-battle-bulbasaur-no-008",
+   "pixels": "960x1340"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-7",
+  "chosen": {
+   "path": "images/candidates/en_mfb-7__1.jpg",
+   "number": "No. 009",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Scyther (My First Battle (Bulbasaur) No. 009)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42770/scyther-my-first-battle-bulbasaur-no-009",
+   "pixels": "960x1343"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-8",
+  "chosen": {
+   "path": "images/candidates/en_mfb-8__1.jpg",
+   "number": "No. 002",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Basic Grass Energy (My First Battle (Bulbasaur) No. 002)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42773/basic-grass-energy-my-first-battle-bulbasaur-no-002",
+   "pixels": "960x1344"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-8__2.jpg",
+    "number": "No. 012",
+    "setName": "My First Battle (Bulbasaur)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-9",
+  "chosen": {
+   "path": "images/candidates/en_mfb-9__1.jpg",
+   "number": "No. 001",
+   "setName": "My First Battle (Charmander)",
+   "title": "Charmander (My First Battle (Charmander) No. 001)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42775/charmander-my-first-battle-charmander-no-001",
+   "pixels": "960x1348"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-9__2.jpg",
+    "number": "No. 003",
+    "setName": "My First Battle (Charmander)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-10",
+  "chosen": {
+   "path": "images/candidates/en_mfb-10__1.jpg",
+   "number": "No. 004",
+   "setName": "My First Battle (Charmander)",
+   "title": "Charmeleon (My First Battle (Charmander) No. 004)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42777/charmeleon-my-first-battle-charmander-no-004",
+   "pixels": "960x1341"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-11",
+  "chosen": {
+   "path": "images/candidates/en_mfb-11__1.jpg",
+   "number": "No. 005",
+   "setName": "My First Battle (Charmander)",
+   "title": "Vulpix (My First Battle (Charmander) No. 005)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42778/vulpix-my-first-battle-charmander-no-005",
+   "pixels": "960x1344"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-12",
+  "chosen": {
+   "path": "images/candidates/en_mfb-12__1.jpg",
+   "number": "No. 006",
+   "setName": "My First Battle (Charmander)",
+   "title": "Ninetales (My First Battle (Charmander) No. 006)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42779/ninetales-my-first-battle-charmander-no-006",
+   "pixels": "960x1346"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-13",
+  "chosen": {
+   "path": "images/candidates/en_mfb-13__1.jpg",
+   "number": "No. 007",
+   "setName": "My First Battle (Charmander)",
+   "title": "Growlithe (My First Battle (Charmander) No. 007)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42780/growlithe-my-first-battle-charmander-no-007",
+   "pixels": "960x1347"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-14",
+  "chosen": {
+   "path": "images/candidates/en_mfb-14__1.jpg",
+   "number": "No. 008",
+   "setName": "My First Battle (Charmander)",
+   "title": "Arcanine (My First Battle (Charmander) No. 008)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42781/arcanine-my-first-battle-charmander-no-008",
+   "pixels": "960x1342"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-15",
+  "chosen": {
+   "path": "images/candidates/en_mfb-15__1.jpg",
+   "number": "No. 009",
+   "setName": "My First Battle (Charmander)",
+   "title": "Magmar (My First Battle (Charmander) No. 009)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42782/magmar-my-first-battle-charmander-no-009",
+   "pixels": "960x1339"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-16",
+  "chosen": {
+   "path": "images/candidates/en_mfb-16__1.jpg",
+   "number": "No. 002",
+   "setName": "My First Battle (Charmander)",
+   "title": "Basic Fire Energy (My First Battle (Charmander) No. 002)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42785/basic-fire-energy-my-first-battle-charmander-no-002",
+   "pixels": "960x1344"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-16__2.jpg",
+    "number": "No. 012",
+    "setName": "My First Battle (Charmander)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-17",
+  "chosen": {
+   "path": "images/candidates/en_mfb-17__1.jpg",
+   "number": "No. 001",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Pikachu (My First Battle (Pikachu) No. 001)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42787/pikachu-my-first-battle-pikachu-no-001",
+   "pixels": "960x1346"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-17__2.jpg",
+    "number": "No. 003",
+    "setName": "My First Battle (Pikachu)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-18",
+  "chosen": {
+   "path": "images/candidates/en_mfb-18__1.jpg",
+   "number": "No. 004",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Raichu (My First Battle (Pikachu) No. 004)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42789/raichu-my-first-battle-pikachu-no-004",
+   "pixels": "960x1340"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-19",
+  "chosen": {
+   "path": "images/candidates/en_mfb-19__1.jpg",
+   "number": "No. 005",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Magnemite (My First Battle (Pikachu) No. 005)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42790/magnemite-my-first-battle-pikachu-no-005",
+   "pixels": "960x1343"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-20",
+  "chosen": {
+   "path": "images/candidates/en_mfb-20__1.jpg",
+   "number": "No. 006",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Magneton (My First Battle (Pikachu) No. 006)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42791/magneton-my-first-battle-pikachu-no-006",
+   "pixels": "960x1345"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-21",
+  "chosen": {
+   "path": "images/candidates/en_mfb-21__1.jpg",
+   "number": "No. 007",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Voltorb (My First Battle (Pikachu) No. 007)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42792/voltorb-my-first-battle-pikachu-no-007",
+   "pixels": "960x1336"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-22",
+  "chosen": {
+   "path": "images/candidates/en_mfb-22__1.jpg",
+   "number": "No. 008",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Electrode (My First Battle (Pikachu) No. 008)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42793/electrode-my-first-battle-pikachu-no-008",
+   "pixels": "960x1340"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-23",
+  "chosen": {
+   "path": "images/candidates/en_mfb-23__1.jpg",
+   "number": "No. 009",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Electabuzz (My First Battle (Pikachu) No. 009)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42794/electabuzz-my-first-battle-pikachu-no-009",
+   "pixels": "960x1333"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-24",
+  "chosen": {
+   "path": "images/candidates/en_mfb-24__1.jpg",
+   "number": "No. 002",
+   "setName": "My First Battle (Pikachu)",
+   "title": "Basic Lightning Energy (My First Battle (Pikachu) No. 002)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42797/basic-lightning-energy-my-first-battle-pikachu-no-002",
+   "pixels": "960x1344"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-24__2.jpg",
+    "number": "No. 012",
+    "setName": "My First Battle (Pikachu)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-25",
+  "chosen": {
+   "path": "images/candidates/en_mfb-25__1.jpg",
+   "number": "No. 001",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Squirtle (My First Battle (Squirtle) No. 001)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42799/squirtle-my-first-battle-squirtle-no-001",
+   "pixels": "960x1344"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-25__2.jpg",
+    "number": "No. 003",
+    "setName": "My First Battle (Squirtle)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-26",
+  "chosen": {
+   "path": "images/candidates/en_mfb-26__1.jpg",
+   "number": "No. 004",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Wartortle (My First Battle (Squirtle) No. 004)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42801/wartortle-my-first-battle-squirtle-no-004",
+   "pixels": "960x1345"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-27",
+  "chosen": {
+   "path": "images/candidates/en_mfb-27__1.jpg",
+   "number": "No. 005",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Poliwag (My First Battle (Squirtle) No. 005)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42802/poliwag-my-first-battle-squirtle-no-005",
+   "pixels": "960x1345"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-28",
+  "chosen": {
+   "path": "images/candidates/en_mfb-28__1.jpg",
+   "number": "No. 006",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Poliwhirl (My First Battle (Squirtle) No. 006)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42803/poliwhirl-my-first-battle-squirtle-no-006",
+   "pixels": "960x1344"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-29",
+  "chosen": {
+   "path": "images/candidates/en_mfb-29__1.jpg",
+   "number": "No. 007",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Magikarp (My First Battle (Squirtle) No. 007)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42804/magikarp-my-first-battle-squirtle-no-007",
+   "pixels": "960x1347"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-30",
+  "chosen": {
+   "path": "images/candidates/en_mfb-30__1.jpg",
+   "number": "No. 008",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Gyarados (My First Battle (Squirtle) No. 008)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42805/gyarados-my-first-battle-squirtle-no-008",
+   "pixels": "960x1343"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-31",
+  "chosen": {
+   "path": "images/candidates/en_mfb-31__1.jpg",
+   "number": "No. 009",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Lapras (My First Battle (Squirtle) No. 009)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42806/lapras-my-first-battle-squirtle-no-009",
+   "pixels": "960x1348"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-32",
+  "chosen": {
+   "path": "images/candidates/en_mfb-32__1.jpg",
+   "number": "No. 002",
+   "setName": "My First Battle (Squirtle)",
+   "title": "Basic Water Energy (My First Battle (Squirtle) No. 002)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42809/basic-water-energy-my-first-battle-squirtle-no-002",
+   "pixels": "960x1344"
+  },
+  "pickReason": "取來源編號最小者（牌組限定版）",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-32__2.jpg",
+    "number": "No. 012",
+    "setName": "My First Battle (Squirtle)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（取來源編號最小者（牌組限定版））；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-33",
+  "chosen": {
+   "path": "images/candidates/en_mfb-33__1.jpg",
+   "number": "No. 010",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Potion (My First Battle (Bulbasaur) No. 010)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42771/potion-my-first-battle-bulbasaur-no-010",
+   "pixels": "960x1342"
+  },
+  "pickReason": "多副牌同編號（只差牌組符號），取清單第一張",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-33__2.jpg",
+    "number": "No. 010",
+    "setName": "My First Battle (Charmander)"
+   },
+   {
+    "path": "images/candidates/en_mfb-33__3.jpg",
+    "number": "No. 010",
+    "setName": "My First Battle (Pikachu)"
+   },
+   {
+    "path": "images/candidates/en_mfb-33__4.jpg",
+    "number": "No. 010",
+    "setName": "My First Battle (Squirtle)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（多副牌同編號（只差牌組符號），取清單第一張）；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mfb-34",
+  "chosen": {
+   "path": "images/candidates/en_mfb-34__1.jpg",
+   "number": "No. 011",
+   "setName": "My First Battle (Bulbasaur)",
+   "title": "Switch (My First Battle (Bulbasaur) No. 011)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/42772/switch-my-first-battle-bulbasaur-no-011",
+   "pixels": "960x1336"
+  },
+  "pickReason": "多副牌同編號（只差牌組符號），取清單第一張",
+  "alternatesNotUsed": [
+   {
+    "path": "images/candidates/en_mfb-34__2.jpg",
+    "number": "No. 011",
+    "setName": "My First Battle (Charmander)"
+   },
+   {
+    "path": "images/candidates/en_mfb-34__3.jpg",
+    "number": "No. 011",
+    "setName": "My First Battle (Pikachu)"
+   },
+   {
+    "path": "images/candidates/en_mfb-34__4.jpg",
+    "number": "No. 011",
+    "setName": "My First Battle (Squirtle)"
+   }
+  ],
+  "versionVerified": false,
+  "note": "TCGdex 只有一筆資料，但來源在同一個產品裡有多個印刷版本。已先套用其中一版（多副牌同編號（只差牌組符號），取清單第一張）；卡包與卡名核對過，版本未核對。看圖確認後可以按「改用這張」換成其他版本。"
+ },
+ {
+  "cardId": "tcgdex:en:mep-Museum",
+  "chosen": {
+   "path": "images/candidates/en_mep-Museum__2.webp",
+   "number": "No. 500",
+   "setName": "Mega Evolution Promos",
+   "title": "Pikachu at the Museum (Mega Evolution Promos No. 500)",
+   "sourceUrl": "https://www.tcgcollector.com/cards/54348/pikachu-at-the-museum-mega-evolution-promos-no-500",
+   "pixels": "418x585"
+  },
+  "pickReason": "唯一候選",
+  "alternatesNotUsed": [],
+  "versionVerified": false,
+  "note": "TCGdex 與來源網站編號規則不同，無法機械式確認版本。已直接套用來源唯一的那張；卡包與卡名核對過，版本未核對。"
+ }
+]

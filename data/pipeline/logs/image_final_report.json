@@ -1,0 +1,28 @@
+{
+ "species": {
+  "total": 1025,
+  "success": 1025,
+  "failed": 0,
+  "byVariant": {
+   "null": 1025
+  },
+  "totalBytesDownloaded": 132662089,
+  "totalMB": 126.5
+ },
+ "cards": {
+  "total": 11782,
+  "success": 11782,
+  "failed": 0,
+  "byVariant": {
+   "null": 2501,
+   "low.png": 144,
+   "high.webp": 2,
+   "low.webp": 9135
+  },
+  "totalBytesDownloaded": 241978451,
+  "totalMB": 230.8
+ },
+ "speciesMissingOnDisk": [],
+ "cardsMissingOnDisk": [],
+ "cardFailureReasons": {}
+}

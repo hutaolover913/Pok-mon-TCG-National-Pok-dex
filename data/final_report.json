@@ -1,0 +1,57 @@
+{
+ "totalCards": 15846,
+ "byLanguage": {
+  "ja": 7397,
+  "en": 8449
+ },
+ "categoryCounts": {
+  "NORMAL": 8756,
+  "SR": 702,
+  "UR": 1664,
+  "OTHER_NO_RARITY": 2354,
+  "CHR": 40,
+  "CSR": 46,
+  "AR": 856,
+  "SAR": 363,
+  "PROMO": 1040,
+  "OTHER": 25
+ },
+ "categoryByLanguage": {
+  "ja:NORMAL": 3494,
+  "ja:SR": 77,
+  "ja:UR": 501,
+  "ja:OTHER_NO_RARITY": 2315,
+  "ja:CHR": 40,
+  "ja:CSR": 46,
+  "ja:AR": 363,
+  "ja:SAR": 141,
+  "ja:PROMO": 420,
+  "en:PROMO": 620,
+  "en:NORMAL": 5262,
+  "en:UR": 1163,
+  "en:SR": 625,
+  "en:OTHER_NO_RARITY": 39,
+  "en:OTHER": 25,
+  "en:AR": 493,
+  "en:SAR": 222
+ },
+ "missingImageByLanguage": {
+  "ja": 3515,
+  "en": 549
+ },
+ "missingImageTotal": 4064,
+ "noRarityByLanguage": {
+  "ja": 2315,
+  "en": 39
+ },
+ "noRarityTotal": 2354,
+ "cardTypeCounts": {
+  "Pokemon": 13020,
+  "Trainer": 2520,
+  "Energy": 306
+ },
+ "pokemonCardsWithoutDex": 0,
+ "totalSpeciesInDex": 1025,
+ "speciesWithAtLeastOneCard": 1008,
+ "speciesWithNoCardsYet": 17
+}

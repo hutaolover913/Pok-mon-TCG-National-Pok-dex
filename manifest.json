@@ -1,0 +1,17 @@
+{
+  "name": "寶可夢 PTCG 全圖鑑收藏",
+  "short_name": "PTCG圖鑑",
+  "description": "依全國圖鑑整理寶可夢 PTCG 卡片收藏",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14151c",
+  "theme_color": "#14151c",
+  "lang": "zh-Hant",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
