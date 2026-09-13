@@ -40,9 +40,9 @@ XLSX = os.path.join(os.path.expanduser("~"), "Downloads", "PTCG_缺少卡片清�
 LANG = {"日文版": "ja", "英文版（美版）": "en", "英文版": "en", "繁體中文版": "zh-Hant"}
 MAX_WORKERS = 3
 INTERVAL = 0.55
-TIMEOUT = 25
+TIMEOUT = (10, 20)   # (連線, 讀取)；分開設才不會被慢速回應無限吊住
 MAX_RETRIES = 3
-SAVE_EVERY = 150
+SAVE_EVERY = 100
 
 _sessions = {}
 
@@ -284,10 +284,20 @@ def load_rows():
 
 
 def save(results):
+    """存檔。os.replace 在 Windows 上只要目標檔正被別的程序開著就會 WinError 5，
+    而這個檔案常常有人在旁邊讀進度 —— 之前就是這樣讓整批跑掉的。
+    所以這裡重試幾次，真的不行也只記錄、不讓整個匯入中斷。"""
     tmp = OUT_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False)
-    os.replace(tmp, OUT_PATH)
+    for attempt in range(6):
+        try:
+            os.replace(tmp, OUT_PATH)
+            return True
+        except PermissionError:
+            time.sleep(0.5 * (attempt + 1))
+    print("！存檔暫時失敗（檔案被佔用），這批結果留在 .tmp，下次存檔會再試", flush=True)
+    return False
 
 
 def main():
@@ -323,18 +333,31 @@ def main():
         return
 
     processed = 0
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+    try:
+      with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
         futures = {ex.submit(process, r): r for r in todo}
         for fut in as_completed(futures):
-            key, res = fut.result()
+            try:
+                key, res = fut.result()
+            except Exception as exc:
+                # 單張失敗不該拖垮整批
+                print("！單筆例外：" + str(exc)[:120], flush=True)
+                processed += 1
+                continue
             results[key] = res
             processed += 1
             if processed % SAVE_EVERY == 0:
                 save(results)
                 ok = sum(1 for v in results.values() if v.get("status") == "ok")
-                print("progress " + str(processed) + "/" + str(len(todo)) + "  ok=" + str(ok), flush=True)
+                print("progress " + str(processed) + "/" + str(len(todo))
+                      + "  ok=" + str(ok)
+                      + "  " + datetime.now().strftime("%H:%M:%S"), flush=True)
 
-    save(results)
+    except KeyboardInterrupt:
+        print("收到中斷訊號，先把已完成的結果存檔…", flush=True)
+    finally:
+        save(results)
+
     stats = {}
     for v in results.values():
         stats[v.get("status")] = stats.get(v.get("status"), 0) + 1
