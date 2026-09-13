@@ -5,7 +5,7 @@
 // sets.json（用 `${language}:${setId}` 查表），圖片也只存一份基底網址，
 // 這裡載入時統一展開成 imageSmall / imageLarge / setName / seriesName /
 // printedTotal / releaseDate，其餘畫面程式碼可以直接當作卡片本身的欄位使用。
-import { getAllCategories, getAllCustomImageIds, getCustomImage, getAllCategoryOverrides } from "./db.js";
+import { getAllCategories, getAllCustomImageIds, getCustomImage, getAllCategoryOverrides, getAllFieldOverrides } from "./db.js";
 import { classifyCard, rarityCategoryId, resolveCategoryIds, resolveRarityCategoryId } from "./cardCategories.js";
 
 let speciesList = null;
@@ -109,6 +109,7 @@ export async function loadStaticData() {
   }
 
   await applyCategoryOverrides();
+  await applyFieldOverrides();
   await applyCustomImageOverrides();
 }
 
@@ -149,6 +150,37 @@ export function refreshCategoryOverrideForCard(cardId, overrideCategoryId) {
   card.categoryOverrideId = overrideCategoryId || null;
   card.rarityCategoryId = resolveRarityCategoryId(card, overrideCategoryId);
   card.categoryIds = resolveCategoryIds(card, overrideCategoryId);
+  return card;
+}
+
+// 系列／卡包／規則標記的手動指定。與稀有度分類完全分開，互不影響。
+export async function applyFieldOverrides() {
+  const overrides = await getAllFieldOverrides();
+  const map = new Map(overrides.map((o) => [o.cardId, o]));
+
+  for (const card of cardsList) {
+    const rec = map.get(card.id);
+    if (!rec) {
+      if (card.seriesOverrideId || card.setKeyOverride || card.regulationMarkOverride) {
+        card.seriesOverrideId = null;
+        card.setKeyOverride = null;
+        card.regulationMarkOverride = null;
+      }
+      continue;
+    }
+    card.seriesOverrideId = rec.seriesId || null;
+    card.setKeyOverride = rec.setKey || null;
+    card.regulationMarkOverride = rec.regulationMark || null;
+  }
+}
+
+/** 單張卡欄位改動後呼叫，讓記憶體中的卡表立刻反映。 */
+export function refreshFieldOverrideForCard(cardId, rec) {
+  const card = cardsById.get(cardId);
+  if (!card) return null;
+  card.seriesOverrideId = (rec && rec.seriesId) || null;
+  card.setKeyOverride = (rec && rec.setKey) || null;
+  card.regulationMarkOverride = (rec && rec.regulationMark) || null;
   return card;
 }
 

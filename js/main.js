@@ -7,6 +7,8 @@ import { renderCollection } from "./pages/collection.js";
 import { renderMissing } from "./pages/missing.js";
 import { renderCardTypes, renderCardTypeDetail } from "./pages/cardTypes.js";
 import { renderExportPage } from "./pages/exportPage.js";
+import { renderSeriesBrowse, renderSeriesDetail } from "./pages/seriesBrowse.js";
+import { loadRegulationMarks } from "./seriesCatalog.js";
 import { renderSettings } from "./pages/settings.js";
 import { applyTheme } from "./theme.js";
 import { showToast } from "./utils.js";
@@ -36,12 +38,16 @@ async function boot() {
 
   await runCardIdMigration();
   await loadStaticData();
+  // 規則標記另外一個檔案，抓不到就全部當「待確認」，不影響其他功能
+  await loadRegulationMarks();
 
   registerRoute("/", renderHome);
   registerRoute("/pokemon/:id", renderDetail);
   registerRoute("/collection", renderCollection);
   registerRoute("/types", renderCardTypes);
   registerRoute("/types/:id", renderCardTypeDetail);
+  registerRoute("/sets", renderSeriesBrowse);
+  registerRoute("/sets/:id", renderSeriesDetail);
   registerRoute("/export", renderExportPage);
   registerRoute("/missing", renderMissing);
   registerRoute("/settings", renderSettings);

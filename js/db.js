@@ -4,7 +4,7 @@
 import { DEFAULT_CATEGORIES, BUILTIN_RARITY_MAPPING_VERSION } from "./categories.js";
 
 const DB_NAME = "pokecard-dex";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise = null;
 
@@ -38,6 +38,12 @@ function openDB() {
       // 這裡只存「使用者自己選的分類」，不動卡片的原始稀有度，也不動收藏紀錄。
       if (!db.objectStoreNames.contains("cardCategoryOverrides")) {
         db.createObjectStore("cardCategoryOverrides", { keyPath: "cardId" });
+      }
+      // v4：系列／卡包／規則標記的手動指定。
+      // 跟 cardCategoryOverrides（稀有度分類）刻意分開存：改卡包或標記
+      // 不會動到使用者整理好的 AR／SAR／CHR 分類，反之亦然。
+      if (!db.objectStoreNames.contains("cardFieldOverrides")) {
+        db.createObjectStore("cardFieldOverrides", { keyPath: "cardId" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -349,6 +355,47 @@ export async function setCategoryOverride(cardId, categoryId) {
 export async function clearCategoryOverride(cardId) {
   const existing = await get("cardCategoryOverrides", cardId);
   await del("cardCategoryOverrides", cardId);
+  return existing || null;
+}
+
+// ---------- 系列／卡包／規則標記的手動指定 ----------
+// 與稀有度分類是兩套獨立資料，互不影響。之後更新來源資料時，這裡的手動
+// 指定一律優先，不會被覆蓋。
+
+export async function getAllFieldOverrides() {
+  return getAll("cardFieldOverrides");
+}
+
+export async function getFieldOverride(cardId) {
+  return get("cardFieldOverrides", cardId);
+}
+
+/**
+ * 設定或清除某張卡的欄位手動指定。
+ * @param {string} cardId
+ * @param {{seriesId?:string|null, setKey?:string|null, regulationMark?:string|null}} patch
+ *        欄位給 null 代表「清掉這一項的手動指定，回到來源資料」
+ */
+export async function setFieldOverride(cardId, patch) {
+  const now = Date.now();
+  const existing = (await get("cardFieldOverrides", cardId)) || { cardId, createdAt: now };
+  const merged = { ...existing, cardId, updatedAt: now };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null || v === undefined || v === "") delete merged[k];
+    else merged[k] = v;
+  }
+  const hasAny = ["seriesId", "setKey", "regulationMark"].some((k) => merged[k]);
+  if (!hasAny) {
+    await del("cardFieldOverrides", cardId);
+    return null;
+  }
+  await put("cardFieldOverrides", merged);
+  return merged;
+}
+
+export async function clearFieldOverride(cardId) {
+  const existing = await get("cardFieldOverrides", cardId);
+  await del("cardFieldOverrides", cardId);
   return existing || null;
 }
 
@@ -739,11 +786,12 @@ async function dataUrlToBlob(dataUrl) {
 }
 
 export async function exportAllData() {
-  const [manualFlags, cardOwnership, categories, categoryOverrides, customImageRecords] = await Promise.all([
+  const [manualFlags, cardOwnership, categories, categoryOverrides, fieldOverrides, customImageRecords] = await Promise.all([
     getAllManualFlags(),
     getAllOwnership(),
     getAllCategories(),
     getAllCategoryOverrides(),
+    getAllFieldOverrides(),
     getAll("customImages")
   ]);
 
@@ -769,6 +817,8 @@ export async function exportAllData() {
     categories,
     // 手動指定的分類：用穩定卡片 id 保存，備份還原後仍然對得回同一張卡
     categoryOverrides,
+    // 手動指定的系列／卡包／規則標記（與分類分開保存）
+    fieldOverrides,
     customImages
   };
 }
@@ -788,6 +838,9 @@ function validateImportShape(payload) {
   }
   if (payload.categoryOverrides !== undefined && !Array.isArray(payload.categoryOverrides)) {
     return "categoryOverrides 欄位格式錯誤（應為陣列）";
+  }
+  if (payload.fieldOverrides !== undefined && !Array.isArray(payload.fieldOverrides)) {
+    return "fieldOverrides 欄位格式錯誤（應為陣列）";
   }
   return null;
 }
@@ -848,6 +901,26 @@ async function importCategoryOverrides(list, mode) {
   }
   const t = tx(db, ["cardCategoryOverrides"], "readwrite");
   const store = t.objectStore("cardCategoryOverrides");
+  if (mode === "overwrite") store.clear();
+  for (const rec of map.values()) store.put(rec);
+  await new Promise((resolve, reject) => {
+    t.oncomplete = resolve;
+    t.onerror = () => reject(t.error);
+  });
+  return map.size;
+}
+
+async function importFieldOverrides(list, mode) {
+  const db = await openDB();
+  const current = mode === "overwrite" ? [] : await getAllFieldOverrides();
+  const map = new Map(current.map((o) => [o.cardId, o]));
+  for (const item of list) {
+    if (!item || !item.cardId) continue;
+    const existing = map.get(item.cardId);
+    if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) map.set(item.cardId, item);
+  }
+  const t = tx(db, ["cardFieldOverrides"], "readwrite");
+  const store = t.objectStore("cardFieldOverrides");
   if (mode === "overwrite") store.clear();
   for (const rec of map.values()) store.put(rec);
   await new Promise((resolve, reject) => {
@@ -925,6 +998,9 @@ export async function importAllData(payload, mode) {
   }
   if (Array.isArray(payload.categoryOverrides)) {
     await importCategoryOverrides(payload.categoryOverrides, mode);
+  }
+  if (Array.isArray(payload.fieldOverrides)) {
+    await importFieldOverrides(payload.fieldOverrides, mode);
   }
   invalidateCategoryCache();
 }

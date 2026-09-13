@@ -7,17 +7,20 @@
 // 確保就算有剛剛才寫入、畫面還沒重畫的改動也會被帶進去。
 import { getAllCards, getSpecies, applyCategoryOverrides } from "../data.js";
 import { CARD_CATEGORY_DEFS, getCategoryDef, isPromoCard } from "../cardCategories.js";
+import { seriesOfCard, getSeriesDisplay, getRegulationMark, markLabel, MARK_STATUS } from "../seriesCatalog.js";
 import { getAllOwnership } from "../db.js";
 import { escapeHtml, padDex, showToast } from "../utils.js";
-import { exportXlsx, exportDocx } from "../exporters.js";
+import { exportXlsx, exportDocx, EXPORT_COLUMNS } from "../exporters.js";
 import { getLastFilterContext } from "./cardTypes.js";
+import { currentSeriesFilterResult, getSeriesFilterState } from "./seriesBrowse.js";
 
 const LANG_LABEL = { en: "英文版（美版）", ja: "日文版", "zh-Hant": "繁體中文版", "zh-Hans": "簡體中文版" };
 
 const state = {
   selected: new Set(CARD_CATEGORY_DEFS.map((d) => d.id)),
   scope: "all", // all | owned | missing
-  useFilters: false
+  useFilters: false,
+  useSeriesFilters: false
 };
 
 export async function renderExportPage() {
@@ -49,7 +52,11 @@ export async function renderExportPage() {
     </section>
 
     <section class="settings-section export-section">
-      <h2>3. 是否沿用卡片分類頁的篩選條件</h2>
+      <h2>3. 是否沿用其他頁面的篩選條件</h2>
+      <label class="export-cat-item" style="max-width:520px">
+        <input type="checkbox" id="exp-useseries" />
+        <span>沿用「系列／卡包」頁目前的條件：${escapeHtml(describeSeriesFilters())}</span>
+      </label>
       ${
         ctx
           ? `<label class="export-cat-item" style="max-width:420px">
@@ -90,6 +97,21 @@ function describeFilters(ctx) {
   if (ctx.setName) parts.push(`卡包：${ctx.setName}`);
   if (ctx.owned && ctx.owned !== "all") parts.push(ctx.owned === "owned" ? "已收藏" : "未收藏");
   return parts.length ? parts.join("、") : "（目前沒有設定任何篩選）";
+}
+
+function describeSeriesFilters() {
+  const st = getSeriesFilterState();
+  const parts = [];
+  if (st.seriesId && st.seriesId !== "all") parts.push(`系列 ${getSeriesDisplay(st.seriesId).zh}`);
+  if (st.setKey && st.setKey !== "all") parts.push(`卡包 ${st.setKey}`);
+  if (st.language && st.language !== "all") parts.push(LANG_LABEL[st.language] || st.language);
+  if (st.mark && st.mark !== "all") {
+    parts.push(st.mark === "__none" ? "無標記" : st.mark === "__unknown" ? "標記待確認" : `${st.mark} 標記`);
+  }
+  if (st.categoryId && st.categoryId !== "all") parts.push((getCategoryDef(st.categoryId) || {}).label);
+  if (st.owned && st.owned !== "all") parts.push(st.owned === "owned" ? "已收藏" : "未收藏");
+  if (st.keyword) parts.push(`關鍵字「${st.keyword}」`);
+  return parts.length ? parts.join("、") : "（沒有設定條件，等同全部）";
 }
 
 function renderCategoryChecklist() {
@@ -146,6 +168,14 @@ function bindEvents(ctx) {
     useFilter.checked = state.useFilters;
     useFilter.addEventListener("change", () => {
       state.useFilters = useFilter.checked;
+      refreshPreview();
+    });
+  }
+  const useSeries = document.getElementById("exp-useseries");
+  if (useSeries) {
+    useSeries.checked = state.useSeriesFilters;
+    useSeries.addEventListener("change", () => {
+      state.useSeriesFilters = useSeries.checked;
       refreshPreview();
     });
   }
@@ -211,10 +241,22 @@ async function buildPayload(ctx) {
       originalRarity: card.originalRarity || "（來源未提供）",
       source: card.categoryOverrideId ? "手動指定" : "系統判定",
       language: LANG_LABEL[card.language] || card.language,
+      seriesZh: getSeriesDisplay(seriesOfCard(card)).zh,
       seriesName: card.seriesName || "",
-      setName: card.setName || card.setId || "",
-      setId: card.setId || "",
       seriesId: card.seriesId || "",
+      setName: card.setName || card.setId || "",
+      setKey: `${card.language}:${card.setId}`,
+      setId: card.setId || "",
+      regulationMark: markLabel(getRegulationMark(card)),
+      // 這三個欄位的判定依據，跟稀有度分類的「分類依據」分開記
+      fieldSource: (() => {
+        const parts = [];
+        if (card.seriesOverrideId) parts.push("系列手動");
+        if (card.setKeyOverride) parts.push("卡包手動");
+        if (card.regulationMarkOverride) parts.push("標記手動");
+        if (getRegulationMark(card).status === MARK_STATUS.UNKNOWN) parts.push("標記待確認");
+        return parts.length ? parts.join("、") : "來源資料";
+      })(),
       // 前導零與斜線都要原樣保留，所以這一欄在 Excel 裡強制存成文字
       cardNumber: card.printedTotal ? `${card.cardNumber}/${card.printedTotal}` : String(card.cardNumber || ""),
       variantMarks: marks.join("、"),
@@ -240,7 +282,11 @@ async function buildPayload(ctx) {
     );
 
   // --- 全部明細：先把範圍內的卡片各做一列，之後分類工作表重用同一批列物件 ---
+  // 沿用系列／卡包頁的條件時，先取那一頁「全部符合條件的卡片」（不是只有
+  // 畫面上已載入的那一頁），再跟這裡的分類與範圍條件取交集。
+  const seriesAllowed = state.useSeriesFilters ? new Set(currentSeriesFilterResult().map((c) => c.id)) : null;
   const inScope = cards.filter((c) => {
+    if (seriesAllowed && !seriesAllowed.has(c.id)) return false;
     if (!matchesScope(c) || !matchesFilters(c)) return false;
     // 只要它至少落在一個被勾選的分類裡，就屬於這次匯出範圍
     return (c.categoryIds || []).some((id) => state.selected.has(id));
@@ -267,7 +313,8 @@ async function buildPayload(ctx) {
   const conditionText =
     `分類：${[...state.selected].map((id) => (getCategoryDef(id) || {}).label).join("、") || "（未選）"}`
     + `｜範圍：${scopeText}`
-    + `｜篩選：${filters ? describeFilters(filters) : "未沿用頁面篩選"}`;
+    + `｜篩選：${filters ? describeFilters(filters) : "未沿用分類頁篩選"}`
+    + (state.useSeriesFilters ? `｜系列頁條件：${describeSeriesFilters()}` : "");
 
   return {
     exportedAt: new Date().toLocaleString("zh-TW", { hour12: false }),
@@ -298,7 +345,7 @@ async function refreshPreview() {
     <div>各分類明細相加 <strong>${payload.sumOfGroups}</strong> 列
          ${payload.sumOfGroups !== payload.distinctCount
            ? `（比不重複卡片多 ${payload.sumOfGroups - payload.distinctCount} 列，是同時屬於多個分類的卡片）` : ""}</div>
-    <div class="hint-text">每一列都是逐張卡片的完整明細（22 欄），不是只有數量統計。</div>`;
+    <div class="hint-text">每一列都是逐張卡片的完整明細（${EXPORT_COLUMNS.length} 欄），不是只有數量統計。</div>`;
 }
 
 async function runExport(kind, ctx) {

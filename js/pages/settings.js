@@ -7,9 +7,14 @@ import {
   clearAllCollectionData,
   getSetting,
   setSetting,
-  getStorageStatus
+  getStorageStatus,
+  bulkSetCategoryOverride,
+  bulkRestoreCategoryOverrides
 } from "../db.js";
 import { escapeHtml, showToast } from "../utils.js";
+import { previewCategoryFixes, applyCategoryFixes } from "../categoryFixes.js";
+import { applyCategoryOverrides } from "../data.js";
+import { downloadBlob } from "../exporters.js";
 import { applyTheme } from "../theme.js";
 
 export async function renderSettings() {
@@ -66,6 +71,19 @@ export async function renderSettings() {
     </section>
 
     <section class="settings-section">
+      <h2>套用已確認分類修正</h2>
+      <p class="hint-text">
+        依查核 Excel 的「錯分清單」中<strong>查核結果＝已確認錯分</strong>的卡片逐張修正分類。
+        「疑似錯分」「建議細分」「來源疑點」等項目<strong>一律不動</strong>。
+        修正是逐張卡片 ID 指定的，不會把某個稀有度整批換掉。
+      </p>
+      <div class="export-radio-row">
+        <button class="primary-btn" id="fix-preview-btn">檢視修正預覽…</button>
+      </div>
+      <div id="fix-status" class="hint-text"></div>
+    </section>
+
+    <section class="settings-section">
       <h2>匯出卡表（查看用）</h2>
       <p class="hint-text">依分類產生 Excel（.xlsx）或 Word（.docx）卡表，可選分類、收藏範圍，並沿用「卡片分類」頁的篩選條件。匯出用的是目前已儲存的最新分類，包含你手動指定過的。</p>
       <div class="export-radio-row">
@@ -98,6 +116,7 @@ export async function renderSettings() {
   bindCategoryAdd();
   bindBackup();
   showStorageStatus();
+  bindCategoryFixes();
   bindDanger();
 }
 
@@ -197,6 +216,138 @@ function bindThemeButtons() {
       applyTheme(theme);
       document.querySelectorAll(".theme-btn").forEach((b) => b.classList.toggle("active", b === btn));
     });
+  });
+}
+
+// ---------------------------------------------------------- 已確認分類修正
+
+function bindCategoryFixes() {
+  const btn = document.getElementById("fix-preview-btn");
+  if (!btn) return;
+  btn.addEventListener("click", openFixDialog);
+  showFixStatus();
+}
+
+async function showFixStatus() {
+  const el = document.getElementById("fix-status");
+  if (!el) return;
+  try {
+    const p = await previewCategoryFixes();
+    el.innerHTML =
+      `修正批次 <code>${escapeHtml(p.version)}</code>（來源：${escapeHtml(p.source)}）共 ${p.total} 張。`
+      + `目前狀態：待套用 <strong>${p.toApply.length}</strong>、已正確 ${p.already.length}、`
+      + `衝突 ${p.conflicts.length}、對不上 ${p.notFound.length}。`
+      + (p.alreadyAppliedBefore ? "（這個批次先前已執行過）" : "");
+  } catch (err) {
+    el.textContent = `讀取修正清單失敗：${err.message}`;
+  }
+}
+
+function rowHtml(f, showCurrent) {
+  return `<tr>
+    <td><code>${escapeHtml(f.cardId)}</code></td>
+    <td>${escapeHtml(f.name || "")}</td>
+    <td>${escapeHtml(f.language === "ja" ? "日文版" : f.language === "en" ? "英文版" : f.language)} ·
+        ${escapeHtml(f.setId)} · ${escapeHtml(f.cardNumber || "")}</td>
+    <td>${showCurrent ? escapeHtml(f.currentLabel || "") : escapeHtml(f.fromLabel || "")}</td>
+    <td>→ ${escapeHtml(f.toLabel || "")}</td>
+  </tr>`;
+}
+
+function tableHtml(title, rows, showCurrent, emptyText) {
+  if (rows.length === 0) return `<p class="hint-text">${escapeHtml(title)}：${escapeHtml(emptyText)}</p>`;
+  return `<details${rows.length && showCurrent === "open" ? " open" : ""}>
+    <summary>${escapeHtml(title)}（${rows.length}）</summary>
+    <div class="fix-table-wrap"><table class="fix-table">
+      <thead><tr><th>卡片 ID</th><th>卡名</th><th>版本</th><th>目前</th><th>修正為</th></tr></thead>
+      <tbody>${rows.map((r) => rowHtml(r, true)).join("")}</tbody>
+    </table></div>
+  </details>`;
+}
+
+async function openFixDialog() {
+  const old = document.getElementById("fix-dialog");
+  if (old) old.remove();
+
+  let p;
+  try {
+    p = await previewCategoryFixes();
+  } catch (err) {
+    alert("讀取修正清單失敗：" + err.message);
+    return;
+  }
+
+  const dlg = document.createElement("div");
+  dlg.id = "fix-dialog";
+  dlg.className = "modal-backdrop";
+  dlg.innerHTML = `
+    <div class="modal wide" role="dialog" aria-modal="true">
+      <h3>套用已確認分類修正</h3>
+      <p class="hint-text">
+        批次 <code>${escapeHtml(p.version)}</code>｜來源：${escapeHtml(p.source)}｜
+        共 ${p.total} 張已確認錯分。
+        ${Object.entries(p.notAppliedCounts).map(([k, v]) => `${escapeHtml(k)} ${v} 筆不處理`).join("、")}。
+      </p>
+      <div class="modal-summary">
+        <div>將套用：<strong>${p.toApply.length}</strong> 張</div>
+        <div>已經正確、不需修改：<strong>${p.already.length}</strong> 張</div>
+        <div>目前分類與清單不符（可能是你後來自己調過）：<strong>${p.conflicts.length}</strong> 張 —— <strong>保留原狀不動</strong></div>
+        <div>找不到或版本對不上：<strong>${p.notFound.length}</strong> 張</div>
+        <div class="hint-text">只會更動這些卡片的分類。收藏狀態、持有張數、備註、圖片與其他手動分類都不受影響。</div>
+      </div>
+      ${tableHtml("將套用的修正", p.toApply, "open", "無")}
+      ${tableHtml("已經正確", p.already, false, "無")}
+      ${tableHtml("衝突（保留不動）", p.conflicts, false, "無")}
+      ${p.notFound.length ? `<details><summary>找不到／版本對不上（${p.notFound.length}）</summary>
+        <ul class="hint-text">${p.notFound.map((f) => `<li><code>${escapeHtml(f.cardId)}</code>：${escapeHtml(f.reason || "")}</li>`).join("")}</ul></details>` : ""}
+      <div class="modal-actions">
+        <button class="text-btn" data-action="backup">先下載 JSON 備份</button>
+        <button class="text-btn" data-action="cancel">取消</button>
+        <button class="primary-btn" data-action="confirm" ${p.toApply.length === 0 ? "disabled" : ""}>
+          套用 ${p.toApply.length} 張修正</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dlg);
+
+  dlg.querySelector('[data-action="cancel"]').addEventListener("click", () => dlg.remove());
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg) dlg.remove();
+  });
+  dlg.querySelector('[data-action="backup"]').addEventListener("click", async () => {
+    const data = await exportAllData();
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+      `套用修正前備份_寶可夢PTCG收藏備份_${ts}.json`);
+    showToast("已下載備份檔，裡面包含收藏紀錄與全部手動分類");
+  });
+
+  const confirmBtn = dlg.querySelector('[data-action="confirm"]');
+  confirmBtn.addEventListener("click", async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "套用中…";
+    try {
+      const res = await applyCategoryFixes(p, { bulkSetCategoryOverride, applyCategoryOverrides });
+      dlg.remove();
+      showToast(`已修正 ${res.applied} 張卡片的分類（略過已正確 ${p.already.length} 張、衝突 ${p.conflicts.length} 張）`, {
+        actionLabel: "復原這次修正",
+        duration: 20000,
+        onAction: async () => {
+          try {
+            await bulkRestoreCategoryOverrides(res.before);
+            await applyCategoryOverrides();
+            showToast(`已復原 ${res.before.length} 張卡片的分類`);
+            renderSettings();
+          } catch (err) {
+            showToast(`復原失敗：${err.message}`, { duration: 12000 });
+          }
+        }
+      });
+      renderSettings();
+    } catch (err) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = `套用 ${p.toApply.length} 張修正`;
+      showToast(`套用失敗，資料未變更：${err.message}`, { duration: 15000 });
+    }
   });
 }
 

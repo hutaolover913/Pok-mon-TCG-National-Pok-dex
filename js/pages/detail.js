@@ -11,6 +11,7 @@ import {
 } from "../db.js";
 import { escapeHtml, padDex, imgFallbackAttr, showToast, formatDate, PLACEHOLDER_IMAGE } from "../utils.js";
 import { renderCategoryPicker, bindCategoryPickers } from "../components/categoryPicker.js";
+import { renderFieldInfo, bindFieldEditors } from "../components/fieldEditor.js";
 import { renderCategoryBadge } from "../components/badges.js";
 import { promptUploadImage, removeCustomImage, acceptCandidateImage } from "../imageUpload.js";
 
@@ -139,6 +140,7 @@ function renderCardList(speciesId, allCards, categories, customImageIds) {
     bindCardRowEvents(speciesId, cards);
     // 分類改動會影響上方的分類徽章與卡片列表分組，所以整頁重畫
     bindCategoryPickers(list, () => draw(speciesId));
+    bindFieldEditors(list, () => draw(speciesId));
   });
 }
 
@@ -171,6 +173,7 @@ function renderCardRow(card, category, ownership, hasCustomImage) {
         ${card.releaseDate ? `發售日：${escapeHtml(formatDate(card.releaseDate))}` : ""}
         ${card.illustrator ? `　繪師：${escapeHtml(card.illustrator)}` : ""}
       </div>
+      ${renderFieldInfo(card)}
       ${renderCategoryPicker(card, { compact: true })}
       ${renderCandidateBlock(card, hasCustomImage)}
     </div>
