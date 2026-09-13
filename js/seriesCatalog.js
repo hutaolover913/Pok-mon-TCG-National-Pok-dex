@@ -41,13 +41,41 @@ let regulationMarks = null; // cardId -> "G" | null；沒有這個 key 代表狀
 /** 規則標記的三種狀態，刻意分開：有標記／確定無標記／尚未核實。 */
 export const MARK_STATUS = { MARKED: "marked", NONE: "none", UNKNOWN: "unknown" };
 
+/**
+ * 清理來源資料裡少數不合法的標記值。實測 TCGdex 回傳過兩種異常：
+ *
+ *   "j"（小寫）× 1 張：mep-051。同一個卡包裡有 50 張是大寫 "J"，明顯只是
+ *                      大小寫誤植，統一成大寫 "J"。
+ *   "None"（字串）× 2 張：mfb-33 Potion、mfb-34 Switch。"None" 不是合法的
+ *                      規則標記，看起來是來源端把空值序列化成字串了。雖然同
+ *                      卡包其他 32 張都確認是「無標記」，但我們不能替來源
+ *                      斷定，所以這兩張一律當成「待確認」，不併入「無標記」。
+ *
+ * 規則：單一 A–Z 字母才算有效標記；小寫轉大寫；其餘一律視為未解析。
+ */
+function sanitizeMarks(raw) {
+  const out = {};
+  for (const [cardId, value] of Object.entries(raw)) {
+    if (value === null) {
+      out[cardId] = null; // 來源明確沒有標記
+      continue;
+    }
+    const v = String(value).trim();
+    if (/^[A-Za-z]$/.test(v)) {
+      out[cardId] = v.toUpperCase();
+    }
+    // 其他值（例如 "None"）不寫進來，等於維持「待確認」
+  }
+  return out;
+}
+
 export async function loadRegulationMarks() {
   if (regulationMarks) return regulationMarks;
   try {
     const res = await fetch("data/regulation_marks.json");
     if (!res.ok) throw new Error(String(res.status));
     const doc = await res.json();
-    regulationMarks = doc.marks || {};
+    regulationMarks = sanitizeMarks(doc.marks || {});
   } catch {
     // 檔案還沒產生或讀取失敗：全部當成「待確認」，不要用其他欄位推算
     regulationMarks = {};
