@@ -1,4 +1,4 @@
-const CACHE_NAME = "pokecard-dex-v12";
+const CACHE_NAME = "pokecard-dex-v13";
 // 注意：資料檔（species.json / cards.json / sets.json / migration_map.json）
 // 刻意不放進安裝時的預快取清單 —— cards.json 有數 MB，若放進 cache.addAll()
 // 只要有一個檔案抓取失敗，整個 Service Worker 安裝就會失敗。改由下面的

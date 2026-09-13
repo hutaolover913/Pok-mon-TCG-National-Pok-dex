@@ -54,21 +54,66 @@ export function safeSheetName(name, used) {
   return candidate;
 }
 
+// 逐張卡片的明細欄位。每個「不同卡片版本」各佔一列（穩定卡片 ID 唯一），
+// 同版本收了幾張用「持有張數」表示，不重複建列。
+//
+// 刻意沒有的欄位：實體卡冊名稱／頁碼／格位。App 裡根本沒有這些資料，
+// 憑空補上只會變成編造，所以寧可不做這幾欄，也在統計總覽裡講明。
 const COLUMNS = [
-  { key: "dex", header: "全國圖鑑編號", width: 13 },
+  { key: "cardId", header: "穩定卡片 ID", width: 26, text: true },
+  { key: "dex", header: "全國圖鑑編號", width: 13, text: true },
   { key: "speciesName", header: "寶可夢名稱", width: 14 },
   { key: "cardName", header: "卡片名稱", width: 26 },
-  { key: "setName", header: "卡包／系列", width: 26 },
-  { key: "cardNumber", header: "卡號", width: 12, text: true },
-  { key: "language", header: "語言", width: 13 },
-  { key: "finalCategory", header: "最終分類", width: 11 },
+  { key: "categories", header: "目前所在分類", width: 18 },
   { key: "originalRarity", header: "來源原始稀有度", width: 22 },
-  { key: "source", header: "分類依據", width: 10 },
+  { key: "source", header: "分類依據", width: 12 },
+  { key: "language", header: "語言／發行地區", width: 15 },
+  { key: "seriesName", header: "所屬大系列", width: 22 },
+  { key: "setName", header: "卡包／擴充包名稱", width: 26 },
+  { key: "setId", header: "卡包代碼", width: 12, text: true },
+  { key: "seriesId", header: "系列代碼", width: 10, text: true },
+  { key: "cardNumber", header: "完整卡號", width: 13, text: true },
+  { key: "variantMarks", header: "版本／特殊標記", width: 16 },
+  { key: "tags", header: "卡片標籤", width: 16 },
+  { key: "illustrator", header: "繪師", width: 18 },
+  { key: "releaseDate", header: "發售日期", width: 13, text: true },
   { key: "ownedLabel", header: "已收藏／未收藏", width: 14 },
   { key: "count", header: "持有張數", width: 10 },
   { key: "note", header: "備註", width: 24 },
-  { key: "imageUrl", header: "圖片來源連結", width: 42 }
+  { key: "sourceUrl", header: "卡片資料來源網址", width: 46, text: true },
+  { key: "imageUrl", header: "圖片網址", width: 46, text: true }
 ];
+
+/** 建一張逐卡明細工作表（全部明細與各分類明細共用同一套欄位）。 */
+function buildDetailSheet(XLSX, rows) {
+  const aoa = [COLUMNS.map((c) => c.header)];
+  for (const r of rows) {
+    aoa.push(COLUMNS.map((c) => (r[c.key] === undefined || r[c.key] === null ? "" : r[c.key])));
+  }
+  const sheet = XLSX.utils.aoa_to_sheet(aoa);
+
+  // 標成 text 的欄位一律存成字串，否則 Excel 會把 "025/165" 當公式、
+  // "0007" 掉前導零、"2022-04-08" 變成日期序號。
+  COLUMNS.forEach((col, ci) => {
+    if (!col.text) return;
+    for (let row = 1; row < aoa.length; row++) {
+      const addr = XLSX.utils.encode_cell({ c: ci, r: row });
+      if (sheet[addr]) {
+        sheet[addr].t = "s";
+        sheet[addr].z = "@";
+      }
+    }
+  });
+
+  sheet["!cols"] = COLUMNS.map((c) => ({ wch: c.width }));
+  sheet["!autofilter"] = {
+    ref: XLSX.utils.encode_range({
+      s: { c: 0, r: 0 },
+      e: { c: COLUMNS.length - 1, r: Math.max(1, aoa.length - 1) }
+    })
+  };
+  return sheet;
+}
 
 // ------------------------------------------------------------------ Excel
 
@@ -78,12 +123,28 @@ export async function exportXlsx(payload, fileName) {
   const used = new Set();
   const dataSheetNames = [];
 
-  // --- 總覽 ---
+  // --- 1. 全部明細：本次範圍內每個穩定卡片 ID 一列，不重複 ---
+  const allName = safeSheetName("全部明細", used);
+  XLSX.utils.book_append_sheet(wb, buildDetailSheet(XLSX, payload.allRows), allName);
+  dataSheetNames.push(allName);
+
+  // --- 2. 各分類明細：一樣是逐卡完整資料，不是只有數量 ---
+  for (const g of payload.groups) {
+    const name = safeSheetName(labelOf(g.categoryId), used);
+    XLSX.utils.book_append_sheet(wb, buildDetailSheet(XLSX, g.rows), name);
+    dataSheetNames.push(name);
+  }
+
+  // --- 3. 統計總覽：輔助用，不取代明細 ---
   const ov = [];
   ov.push(["寶可夢 PTCG 收藏 — 卡表匯出"]);
   ov.push([]);
   ov.push(["匯出時間", payload.exportedAt]);
   ov.push(["匯出條件", payload.conditionText]);
+  ov.push([]);
+  ov.push(["工作表", "說明"]);
+  ov.push([allName, `本次範圍內全部 ${payload.allRows.length} 張不同卡片，每個穩定卡片 ID 一列；一張卡若屬於多個分類，分類欄會列出全部，不重複建列`]);
+  ov.push(["各分類明細", `依所選分類各一張工作表，內容同樣是逐卡完整資料（共 ${payload.groups.length} 張）`]);
   ov.push([]);
   ov.push(["分類", "不重複卡片數", "已收藏卡片數", "持有總張數"]);
   for (const g of payload.groups) {
@@ -91,49 +152,34 @@ export async function exportXlsx(payload, fileName) {
   }
   ov.push([]);
   ov.push(["本次匯出不重複卡片總數", payload.distinctCount]);
+  ov.push(["其中已收藏（不重複卡片）", payload.ownedDistinct]);
+  ov.push(["持有總張數", payload.totalCopiesAll]);
   ov.push(["各分類相加", payload.sumOfGroups]);
   ov.push([
-    "說明",
-    "同一張卡若同時符合多個分類（例如帶稀有度的宣傳卡），會出現在多個工作表，"
-      + "所以「各分類相加」會大於「不重複卡片總數」。上面的不重複總數已去除重複計算。"
+    "重複計算說明",
+    "同一張卡若同時符合多個分類（例如帶稀有度的宣傳卡），會出現在多個分類工作表，"
+      + "所以「各分類相加」會大於「不重複卡片總數」。全部明細與上面的不重複總數都已去除重複計算。"
+  ]);
+  ov.push([
+    "沒有提供的欄位",
+    "實體卡冊名稱／頁碼／格位：目前 App 沒有保存這類實體收納位置資料，所以不輸出這幾欄，也不會自行填造。"
+  ]);
+  ov.push([
+    "版本／特殊標記說明",
+    "這一欄只填資料已確認的內容（宣傳卡卡包、樣本資料）。異圖、閃卡、反閃、蓋章版等資訊"
+      + "來源資料庫並未提供，因此留空而不是猜測。"
   ]);
   ov.push([
     "範圍聲明",
     "本表僅涵蓋本次匯出所選範圍內、且目前 App 資料庫已收錄的卡片，不是官方歷年完整卡表。"
   ]);
   const ws = XLSX.utils.aoa_to_sheet(ov);
-  ws["!cols"] = [{ wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 14 }];
-  XLSX.utils.book_append_sheet(wb, ws, safeSheetName("總覽", used));
-
-  // --- 各分類 ---
-  for (const g of payload.groups) {
-    const aoa = [COLUMNS.map((c) => c.header)];
-    for (const r of g.rows) aoa.push(COLUMNS.map((c) => (r[c.key] === undefined || r[c.key] === null ? "" : r[c.key])));
-    const sheet = XLSX.utils.aoa_to_sheet(aoa);
-
-    // 卡號一定要存成文字，否則 "003/SV-P" 會被當公式／日期，"007" 會掉前導零
-    const numberCol = COLUMNS.findIndex((c) => c.text);
-    for (let row = 1; row < aoa.length; row++) {
-      const addr = XLSX.utils.encode_cell({ c: numberCol, r: row });
-      if (sheet[addr]) {
-        sheet[addr].t = "s";
-        sheet[addr].z = "@";
-      }
-    }
-
-    sheet["!cols"] = COLUMNS.map((c) => ({ wch: c.width }));
-    sheet["!autofilter"] = { ref: XLSX.utils.encode_range({
-      s: { c: 0, r: 0 },
-      e: { c: COLUMNS.length - 1, r: Math.max(1, aoa.length - 1) }
-    }) };
-    const sheetName = safeSheetName(labelOf(g.categoryId), used);
-    XLSX.utils.book_append_sheet(wb, sheet, sheetName);
-    dataSheetNames.push(sheetName);
-  }
+  ws["!cols"] = [{ wch: 28 }, { wch: 60 }, { wch: 16 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, ws, safeSheetName("統計總覽", used));
 
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   // SheetJS 社群版不會把凍結窗格寫進檔案（實測產出的 sheet XML 裡沒有 <pane>），
-  // 所以這裡把它產生的 xlsx 拆開，自己在每個分類工作表的 sheetView 裡補上
+  // 所以這裡把它產生的 xlsx 拆開，自己在每個明細工作表的 sheetView 裡補上
   // <pane>，再重新打包。這樣拿到的仍然是標準的 xlsx，Excel 開起來標題列會凍結。
   const finalBuf = await addFreezePanes(out, wb, dataSheetNames);
   downloadBlob(

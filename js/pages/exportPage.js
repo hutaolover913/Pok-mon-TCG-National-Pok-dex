@@ -6,7 +6,7 @@
 // 所以不會匯到舊資料。按下匯出時還會再從 IndexedDB 重新讀一次覆寫紀錄，
 // 確保就算有剛剛才寫入、畫面還沒重畫的改動也會被帶進去。
 import { getAllCards, getSpecies, applyCategoryOverrides } from "../data.js";
-import { CARD_CATEGORY_DEFS } from "../cardCategories.js";
+import { CARD_CATEGORY_DEFS, getCategoryDef, isPromoCard } from "../cardCategories.js";
 import { getAllOwnership } from "../db.js";
 import { escapeHtml, padDex, showToast } from "../utils.js";
 import { exportXlsx, exportDocx } from "../exporters.js";
@@ -62,6 +62,7 @@ export async function renderExportPage() {
 
     <section class="settings-section export-section">
       <h2>4. 確認並匯出</h2>
+      <p class="hint-text">Excel 會產生三種工作表：<strong>全部明細</strong>（本次範圍內每個卡片 ID 一列，分類欄列出它所屬的全部分類）、<strong>各分類明細</strong>（依所選分類各一張，內容同樣是逐卡完整資料）、<strong>統計總覽</strong>（輔助用，不取代明細）。</p>
       <div class="export-preview" id="exp-preview">計算中…</div>
       <div class="export-actions">
         <button class="primary-btn" id="exp-xlsx">匯出 Excel（.xlsx）</button>
@@ -152,7 +153,12 @@ function bindEvents(ctx) {
   document.getElementById("exp-docx").addEventListener("click", () => runExport("docx", ctx));
 }
 
-/** 依目前條件組出要匯出的資料。回傳的 rows 已經是最終分類（手動優先）。 */
+/**
+ * 依目前條件組出要匯出的資料。
+ *
+ * rows 一律是「逐張卡片的完整明細」：一個穩定卡片 ID 一列，同版本收了幾張
+ * 用「持有張數」表示。分類欄位用的是目前已儲存的最終分類（手動優先）。
+ */
 async function buildPayload(ctx) {
   const ownership = await getAllOwnership();
   const ownMap = new Map(ownership.map((o) => [o.cardId, o]));
@@ -179,72 +185,98 @@ async function buildPayload(ctx) {
     return true;
   };
 
-  const groups = [];
-  const distinct = new Set();
-  let sumOfGroups = 0;
+  /** 把一張卡轉成明細列。只填資料裡確實有的東西，沒有的留空。 */
+  const toRow = (card) => {
+    const own = ownMap.get(card.id);
+    const count = own ? own.count : 0;
+    const dex = (card.dexNumbers || [])[0];
+    const sp = dex ? getSpecies(dex) : null;
 
+    // 版本／特殊標記：只列出資料已確認的。異圖、閃卡、反閃、蓋章版等來源
+    // 資料庫沒有提供，所以不寫 —— 寧可留空，也不編造。
+    const marks = [];
+    if (isPromoCard(card)) marks.push("宣傳卡");
+    if (card.isSample) marks.push("樣本資料");
+
+    return {
+      cardId: card.id,
+      dex: dex ? padDex(dex) : "",
+      dexSort: dex || 99999,
+      speciesName: sp ? sp.nameZh || sp.nameEn : "",
+      cardName: card.name || "",
+      // 目前所在分類：一張卡屬於多個分類時全部列出，不另外建列
+      categories: (card.categoryIds || [])
+        .map((id) => (getCategoryDef(id) || {}).label || id)
+        .join("、"),
+      originalRarity: card.originalRarity || "（來源未提供）",
+      source: card.categoryOverrideId ? "手動指定" : "系統判定",
+      language: LANG_LABEL[card.language] || card.language,
+      seriesName: card.seriesName || "",
+      setName: card.setName || card.setId || "",
+      setId: card.setId || "",
+      seriesId: card.seriesId || "",
+      // 前導零與斜線都要原樣保留，所以這一欄在 Excel 裡強制存成文字
+      cardNumber: card.printedTotal ? `${card.cardNumber}/${card.printedTotal}` : String(card.cardNumber || ""),
+      variantMarks: marks.join("、"),
+      tags: (card.tags || []).join("、"),
+      illustrator: card.illustrator || "",
+      releaseDate: card.releaseDate || "",
+      ownedLabel: count > 0 ? "已收藏" : "未收藏",
+      count,
+      note: own ? own.note || "" : "",
+      // TCGdex 的卡片 API 端點，就是本專案抓資料時實際用的那個網址格式
+      sourceUrl: card.sourceId ? `https://api.tcgdex.net/v2/${card.language}/cards/${card.sourceId}` : "",
+      // 只放真的可以點的公開網址；本機快取路徑在 Excel 裡點不開，留空
+      imageUrl: /^https?:\/\//.test(card.remoteImageSmall || "") ? card.remoteImageSmall : ""
+    };
+  };
+
+  const sortRows = (rows) =>
+    rows.sort(
+      (a, b) =>
+        a.dexSort - b.dexSort
+        || a.setName.localeCompare(b.setName, "ja")
+        || String(a.cardNumber).localeCompare(String(b.cardNumber), "en", { numeric: true })
+    );
+
+  // --- 全部明細：先把範圍內的卡片各做一列，之後分類工作表重用同一批列物件 ---
+  const inScope = cards.filter((c) => {
+    if (!matchesScope(c) || !matchesFilters(c)) return false;
+    // 只要它至少落在一個被勾選的分類裡，就屬於這次匯出範圍
+    return (c.categoryIds || []).some((id) => state.selected.has(id));
+  });
+  const rowByCardId = new Map();
+  for (const card of inScope) rowByCardId.set(card.id, toRow(card));
+  const allRows = sortRows(Array.from(rowByCardId.values()));
+
+  // --- 各分類明細 ---
+  const groups = [];
+  let sumOfGroups = 0;
   for (const def of CARD_CATEGORY_DEFS) {
     if (!state.selected.has(def.id)) continue;
-    const rows = [];
-    let ownedCount = 0;
-    let totalCopies = 0;
-
-    for (const card of cards) {
-      if (!(card.categoryIds || []).includes(def.id)) continue;
-      if (!matchesScope(card) || !matchesFilters(card)) continue;
-
-      const own = ownMap.get(card.id);
-      const count = own ? own.count : 0;
-      const dex = (card.dexNumbers || [])[0];
-      const sp = dex ? getSpecies(dex) : null;
-      if (count > 0) ownedCount++;
-      totalCopies += count;
-      distinct.add(card.id);
-
-      rows.push({
-        dex: dex ? padDex(dex) : "",
-        dexSort: dex || 99999,
-        speciesName: sp ? sp.nameZh || sp.nameEn : "",
-        cardName: card.name || "",
-        setName: card.setName || card.setId || "",
-        // 前導零與斜線都要原樣保留，所以匯出時這一欄強制存成文字
-        cardNumber: card.printedTotal ? `${card.cardNumber}/${card.printedTotal}` : String(card.cardNumber || ""),
-        language: LANG_LABEL[card.language] || card.language,
-        finalCategory: (CARD_CATEGORY_DEFS.find((d) => d.id === card.rarityCategoryId) || {}).label
-          || card.rarityCategoryId,
-        originalRarity: card.originalRarity || "（來源未提供）",
-        source: card.categoryOverrideId ? "手動" : "自動",
-        ownedLabel: count > 0 ? "已收藏" : "未收藏",
-        count,
-        note: own ? own.note || "" : "",
-        // 只放真的可以點的公開網址。本機快取路徑（images/cards/…）在 Excel 裡
-        // 點不開，放了只會誤導，所以沒有遠端網址時就留空。
-        imageUrl: /^https?:\/\//.test(card.remoteImageSmall || "") ? card.remoteImageSmall : ""
-      });
-    }
-
-    rows.sort((a, b) =>
-      a.dexSort - b.dexSort
-      || a.setName.localeCompare(b.setName, "ja")
-      || String(a.cardNumber).localeCompare(String(b.cardNumber), "en", { numeric: true })
+    const rows = sortRows(
+      inScope.filter((c) => (c.categoryIds || []).includes(def.id)).map((c) => rowByCardId.get(c.id))
     );
-    rows.forEach((r) => delete r.dexSort);
-
+    const ownedCount = rows.filter((r) => r.count > 0).length;
+    const totalCopies = rows.reduce((sum, r) => sum + r.count, 0);
     sumOfGroups += rows.length;
     groups.push({ categoryId: def.id, rows, ownedCount, totalCopies });
   }
 
   const scopeText = { all: "全部已收錄卡片", owned: "只要已收藏", missing: "只要未收藏" }[state.scope];
   const conditionText =
-    `分類：${[...state.selected].map((id) => (CARD_CATEGORY_DEFS.find((d) => d.id === id) || {}).label).join("、") || "（未選）"}`
+    `分類：${[...state.selected].map((id) => (getCategoryDef(id) || {}).label).join("、") || "（未選）"}`
     + `｜範圍：${scopeText}`
     + `｜篩選：${filters ? describeFilters(filters) : "未沿用頁面篩選"}`;
 
   return {
     exportedAt: new Date().toLocaleString("zh-TW", { hour12: false }),
     conditionText,
+    allRows,
     groups,
-    distinctCount: distinct.size,
+    distinctCount: allRows.length,
+    ownedDistinct: allRows.filter((r) => r.count > 0).length,
+    totalCopiesAll: allRows.reduce((s, r) => s + r.count, 0),
     sumOfGroups
   };
 }
@@ -260,11 +292,13 @@ async function refreshPreview() {
   const payload = await buildPayload(ctx);
   el.innerHTML = `
     <div>匯出條件：${escapeHtml(payload.conditionText)}</div>
-    <div>工作表：總覽 + ${payload.groups.length} 個分類</div>
-    <div>預計卡片：各分類相加 <strong>${payload.sumOfGroups}</strong> 列，
-         不重複卡片 <strong>${payload.distinctCount}</strong> 張
+    <div>工作表：<strong>全部明細</strong> + ${payload.groups.length} 個分類明細 + 統計總覽</div>
+    <div>全部明細：<strong>${payload.distinctCount}</strong> 張不同卡片（每個卡片 ID 一列，不重複）；
+         其中已收藏 <strong>${payload.ownedDistinct}</strong> 張、持有共 <strong>${payload.totalCopiesAll}</strong> 張</div>
+    <div>各分類明細相加 <strong>${payload.sumOfGroups}</strong> 列
          ${payload.sumOfGroups !== payload.distinctCount
-           ? `（差額 ${payload.sumOfGroups - payload.distinctCount} 是同時符合多個分類的卡片）` : ""}</div>`;
+           ? `（比不重複卡片多 ${payload.sumOfGroups - payload.distinctCount} 列，是同時屬於多個分類的卡片）` : ""}</div>
+    <div class="hint-text">每一列都是逐張卡片的完整明細（22 欄），不是只有數量統計。</div>`;
 }
 
 async function runExport(kind, ctx) {
