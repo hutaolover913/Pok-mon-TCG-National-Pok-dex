@@ -73,8 +73,60 @@ export const CARD_CATEGORY_DEFS = [
   {
     id: "UNVERIFIED", label: "待確認", order: 11, color: "#b06a3b",
     description: "來源沒有提供稀有度，或該稀有度字串在這個語言下無法確認對應哪一個等級。刻意不猜，也不併入普通卡。"
+  },
+
+  // ---------------------------------------------------------------------
+  // 以下是「只能手動加入」的分類。
+  //
+  // 它們刻意**沒有任何自動對照規則**（下面的 RARITY_RULES 裡完全找不到它們），
+  // 所以 classifyCard() 永遠不會把卡片放進來，即使某張卡的原始稀有度字面上
+  // 看起來很像。要有卡片，只能靠使用者單張指定或批量移動。
+  //
+  // 這是刻意的設計：像「光輝」與「閃光」這種中文分類，沒辦法從 TCGdex 的英文
+  // 稀有度字串可靠地推斷，硬猜只會把卡片分錯。寧可讓使用者自己決定。
+  // ---------------------------------------------------------------------
+  {
+    id: "RR", label: "RR", order: 12, color: "#5bc0be", manualOnly: true,
+    description: "雙稀有（ダブルレア）。只能手動加入，系統不會自動放卡片進來。"
+  },
+  {
+    id: "RRR", label: "RRR", order: 13, color: "#3aa8a4", manualOnly: true,
+    description: "三稀有（トリプルレア）。只能手動加入，系統不會自動放卡片進來。"
+  },
+  {
+    id: "RADIANT_ZH", label: "光輝", order: 14, color: "#f7b955", manualOnly: true,
+    description: "光輝。只能手動加入；與「閃光」是各自獨立的分類，系統不會替你推測歸屬。"
+  },
+  {
+    id: "ACE", label: "ACE", order: 15, color: "#e05c7e", manualOnly: true,
+    description: "ACE SPEC。只能手動加入，系統不會自動放卡片進來。"
+  },
+  {
+    id: "SSR", label: "SSR", order: 16, color: "#9b6bff", manualOnly: true,
+    description: "SSR。只能手動加入，系統不會自動放卡片進來。"
+  },
+  {
+    id: "BWR", label: "BWR", order: 17, color: "#576574", manualOnly: true,
+    description: "黑白稀有（Black White Rare）。只能手動加入，系統不會自動放卡片進來。"
+  },
+  {
+    id: "MUR", label: "MUR", order: 18, color: "#d4a017", manualOnly: true,
+    description: "MUR。只能手動加入，系統不會自動放卡片進來。"
+  },
+  {
+    id: "MA", label: "MA", order: 19, color: "#6c9a3f", manualOnly: true,
+    description: "MA。只能手動加入，系統不會自動放卡片進來。"
+  },
+  {
+    id: "SHINY_ZH", label: "閃光", order: 20, color: "#59c3f0", manualOnly: true,
+    description: "閃光。只能手動加入；與「光輝」是各自獨立的分類，系統不會替你推測歸屬。"
   }
 ];
+
+/** 只能手動加入、沒有自動對照規則的分類 id。 */
+export const MANUAL_ONLY_CATEGORY_IDS = new Set(
+  CARD_CATEGORY_DEFS.filter((d) => d.manualOnly).map((d) => d.id)
+);
 
 // rarity 字串（小寫）-> { category, confidence, note }
 // 用小寫比對，因為 TCGdex 同時出現過 "Hyper rare" 與 "Hyper Rare" 這種寫法。

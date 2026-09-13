@@ -15,7 +15,13 @@ import {
 } from "../cardCategories.js";
 import { getAllOwnership, getOwnership, setOwnership } from "../db.js";
 import { escapeHtml, imgFallbackAttr, debounce, padDex, showToast, PLACEHOLDER_IMAGE } from "../utils.js";
-import { renderCategoryPicker, bindCategoryPickers, undoLastAction, hasUndoableAction } from "../components/categoryPicker.js";
+import { renderCategoryPicker, bindCategoryPickers } from "../components/categoryPicker.js";
+import {
+  createSelection, renderSelectCheckbox, renderBulkBar,
+  bindBulkBar, bindCheckboxes, runOnce
+} from "../components/bulkSelect.js";
+import { bulkSetCategoryOverride, bulkRestoreCategoryOverrides } from "../db.js";
+import { applyCategoryOverrides } from "../data.js";
 
 const PAGE_SIZE = 120;
 
@@ -29,6 +35,13 @@ const filterState = {
   sort: "dex", // dex | number
   limit: PAGE_SIZE
 };
+
+// 批量編輯狀態。選取的卡片 id 放在 selection，切分類／改篩選時會被清掉。
+const selection = createSelection();
+let bulkMode = false;
+// 目前這次 draw() 算出來的結果，批量按鈕要用（例如「選取全部篩選結果」）
+let lastFiltered = [];
+let lastShown = [];
 
 function cardsInCategory(categoryId) {
   return getAllCards().filter((c) => (c.categoryIds || []).includes(categoryId));
@@ -76,14 +89,14 @@ export async function renderCardTypes() {
         const empty = st.total === 0;
         return `
         <a class="cat-browse-tile${empty ? " empty" : ""}"
-           href="${empty ? "#/types" : `#/types/${encodeURIComponent(def.id)}`}"
+           href="#/types/${encodeURIComponent(def.id)}"
            style="--badge-color:${def.color}">
           <div class="cat-browse-head">
             <span class="cat-browse-label">${escapeHtml(def.label)}</span>
           </div>
           ${
             empty
-              ? `<div class="cat-browse-empty">目前尚未收錄</div>`
+              ? `<div class="cat-browse-empty">${def.manualOnly ? "0 張／尚未加入卡片" : "目前尚未收錄"}</div>`
               : `<div class="cat-browse-nums">
                    <strong>${st.owned}</strong>
                    <span class="cat-browse-denom">/ ${st.total}</span>
@@ -127,6 +140,7 @@ export async function renderCardTypeDetail(params) {
 
   if (filterState.categoryId !== categoryId) {
     // 換到另一個分類時才重設條件，回到同一個分類會保留剛才的篩選
+    selection.clearOnFilterChange("已切換分類");
     filterState.categoryId = categoryId;
     filterState.keyword = "";
     filterState.owned = "all";
@@ -145,7 +159,14 @@ export async function renderCardTypeDetail(params) {
         <a class="back-link" href="#/types">← 卡片分類</a>
         <h1>${escapeHtml(def.label)}</h1>
       </header>
-      <div class="empty-state">目前尚未收錄<br /><span class="hint-text">這不代表這個分類不存在，只是目前資料庫還沒有收到這一類的卡片。</span></div>`;
+      <div class="empty-state">
+        ${def.manualOnly ? "0 張／尚未加入卡片" : "目前尚未收錄"}<br />
+        <span class="hint-text">${
+          def.manualOnly
+            ? "這是只能手動加入的分類，系統不會自動把卡片放進來。要加卡片：到別的分類頁開啟「批量編輯」，勾選卡片後按「移動到分類…」選這一類；或在單張卡片下方的分類選單直接指定。"
+            : "這不代表這個分類不存在，只是目前資料庫還沒有收到這一類的卡片。"
+        }</span>
+      </div>`;
     return;
   }
 
@@ -185,6 +206,7 @@ export async function renderCardTypeDetail(params) {
         </select>
       </div>
       <div class="cat-result-line" id="ct-result"></div>
+      <div id="ct-bulk"></div>
     </section>
 
     <section class="cat-card-grid" id="ct-grid"></section>
@@ -214,6 +236,7 @@ function bindFilters() {
     debounce(() => {
       filterState.keyword = search.value.trim();
       filterState.limit = PAGE_SIZE;
+      selection.clearOnFilterChange("搜尋條件已變更");
       draw();
     }, 200)
   );
@@ -223,6 +246,7 @@ function bindFilters() {
     if (!btn) return;
     filterState.owned = btn.getAttribute("data-v");
     filterState.limit = PAGE_SIZE;
+    selection.clearOnFilterChange("篩選條件已變更");
     syncSegButtons();
     draw();
   });
@@ -231,6 +255,8 @@ function bindFilters() {
     document.getElementById(id).addEventListener("change", (e) => {
       filterState[key] = e.target.value;
       filterState.limit = PAGE_SIZE;
+      // 排序改變不影響選取內容，只有真的改變「有哪些卡」的條件才清空
+      if (key !== "sort") selection.clearOnFilterChange("篩選條件已變更");
       draw();
     });
   }
@@ -293,10 +319,15 @@ async function draw() {
     + (filtered.length > filterState.limit ? `（目前顯示前 ${filterState.limit} 張）` : "");
 
   const shown = filtered.slice(0, filterState.limit);
+  lastFiltered = filtered;
+  lastShown = shown;
+
   const grid = document.getElementById("ct-grid");
   grid.innerHTML = shown.length
     ? shown.map((card) => renderCardCell(card, ownMap.get(card.id))).join("")
     : `<div class="empty-state">沒有符合條件的卡片</div>`;
+
+  renderBulkControls();
 
   const more = document.getElementById("ct-more");
   more.classList.toggle("hidden", filtered.length <= filterState.limit);
@@ -318,7 +349,8 @@ function renderCardCell(card, own) {
     : escapeHtml(card.cardNumber);
 
   return `
-  <div class="ct-cell${owned ? " owned" : ""}" data-card-id="${escapeHtml(card.id)}">
+  <div class="ct-cell${owned ? " owned" : ""}${bulkMode && selection.has(card.id) ? " selected" : ""}" data-card-id="${escapeHtml(card.id)}">
+    ${bulkMode ? renderSelectCheckbox(card.id, selection.has(card.id)) : ""}
     <a class="ct-cell-img-link" href="${dex ? `#/pokemon/${dex}` : "#/types"}"
        title="${dex ? "開啟詳細頁" : "這張卡沒有對應的寶可夢圖鑑編號"}">
       <img class="ct-cell-img" src="${escapeHtml(card.imageSmall || PLACEHOLDER_IMAGE)}"
@@ -423,6 +455,145 @@ async function refreshResultLine() {
       `符合條件 <strong>${filtered.length}</strong> 張，其中已收藏 <strong>${ownedCount}</strong> 張`
       + (filtered.length > filterState.limit ? `（目前顯示前 ${filterState.limit} 張）` : "");
   }
+}
+
+// ------------------------------------------------------------- 批量編輯
+
+function renderBulkControls() {
+  const host = document.getElementById("ct-bulk");
+  if (!host) return;
+  host.innerHTML = renderBulkBar({
+    active: bulkMode,
+    selected: selection.size,
+    pageCount: lastShown.length,
+    totalCount: lastFiltered.length,
+    actionLabel: `移動到分類…（${selection.size}）`,
+    actionId: "ct-bulk-move"
+  });
+
+  bindBulkBar(host, {
+    onToggleMode: (on) => {
+      bulkMode = on;
+      if (!on) selection.clear();
+      draw();
+    },
+    onSelectPage: () => {
+      lastShown.forEach((c) => selection.add(c.id));
+      draw();
+    },
+    onSelectAll: () => {
+      lastFiltered.forEach((c) => selection.add(c.id));
+      showToast(`已選取全部篩選結果共 ${lastFiltered.length} 張（不只目前顯示的 ${lastShown.length} 張）`);
+      draw();
+    },
+    onClearSelection: () => {
+      selection.clear();
+      draw();
+    }
+  });
+
+  const moveBtn = document.getElementById("ct-bulk-move");
+  if (moveBtn) moveBtn.addEventListener("click", openMoveDialog);
+
+  const grid = document.getElementById("ct-grid");
+  if (grid) bindCheckboxes(grid, selection, () => renderBulkControls());
+  // 只重畫工具列上的數字時，卡片格的樣式也要跟著更新
+  if (grid) {
+    grid.querySelectorAll(".ct-cell").forEach((cell) => {
+      cell.classList.toggle("selected", selection.has(cell.getAttribute("data-card-id")));
+    });
+  }
+}
+
+function openMoveDialog() {
+  if (selection.size === 0) return;
+  const ids = selection.ids();
+  const existing = document.getElementById("bulk-move-dialog");
+  if (existing) existing.remove();
+
+  const dlg = document.createElement("div");
+  dlg.id = "bulk-move-dialog";
+  dlg.className = "modal-backdrop";
+  dlg.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulk-move-title">
+      <h3 id="bulk-move-title">移動 ${ids.length} 張卡片到分類</h3>
+      <p class="hint-text">只會變更這 ${ids.length} 張卡片的<strong>手動分類</strong>。
+        收藏狀態、持有張數、備註、卡片 ID、原始稀有度與圖片都不會被動到。</p>
+      <label class="modal-label">目標分類
+        <select id="bulk-move-target" class="cat-select">
+          ${CARD_CATEGORY_DEFS.map((d) => `<option value="${d.id}">${escapeHtml(d.label)}</option>`).join("")}
+        </select>
+      </label>
+      <div id="bulk-move-summary" class="modal-summary"></div>
+      <div class="modal-actions">
+        <button class="text-btn" data-action="cancel">取消</button>
+        <button class="primary-btn" data-action="confirm">確認移動</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dlg);
+
+  const select = dlg.querySelector("#bulk-move-target");
+  const summary = dlg.querySelector("#bulk-move-summary");
+  const updateSummary = () => {
+    const def = getCategoryDef(select.value);
+    summary.innerHTML = `即將把 <strong>${ids.length}</strong> 張卡片移動到
+      <strong>${escapeHtml(def ? def.label : select.value)}</strong>。`;
+  };
+  updateSummary();
+  select.addEventListener("change", updateSummary);
+
+  dlg.querySelector('[data-action="cancel"]').addEventListener("click", () => dlg.remove());
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg) dlg.remove();
+  });
+
+  const confirmBtn = dlg.querySelector('[data-action="confirm"]');
+  confirmBtn.addEventListener("click", async () => {
+    const target = select.value;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "移動中…";
+    const res = await runOnce("bulk-move", async () => {
+      try {
+        // 整批寫在同一個 IndexedDB 交易裡：全成功或全不生效
+        const { moved, before } = await bulkSetCategoryOverride(ids, target);
+        await applyCategoryOverrides();
+        dlg.remove();
+        selection.clear();
+        await draw();
+        const def = getCategoryDef(target);
+        showToast(`已將 ${moved} 張卡片移動到「${def ? def.label : target}」`, {
+          actionLabel: "復原這次移動",
+          duration: 15000,
+          onAction: async () => {
+            await runOnce("bulk-move-undo", async () => {
+              try {
+                const n = await bulkRestoreCategoryOverrides(before);
+                await applyCategoryOverrides();
+                await draw();
+                showToast(`已復原 ${n} 張卡片的分類`);
+              } catch (err) {
+                showToast(`復原失敗：${err && err.message ? err.message : err}`, { duration: 12000 });
+              }
+            });
+          }
+        });
+        return { ok: true };
+      } catch (err) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "確認移動";
+        showToast(`移動失敗，資料未變更：${err && err.message ? err.message : err}`, {
+          actionLabel: "重試",
+          duration: 15000,
+          onAction: () => confirmBtn.click()
+        });
+        return { ok: false };
+      }
+    });
+    if (res && res.skipped) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "確認移動";
+    }
+  });
 }
 
 function languageLabel(lang) {

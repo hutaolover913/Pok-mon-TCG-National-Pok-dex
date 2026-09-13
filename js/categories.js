@@ -24,6 +24,10 @@ import { CARD_CATEGORY_DEFS } from "./cardCategories.js";
 // v2：修正「Ultra Rare」原本被錯誤歸到 UR 的問題 —— 實際核對日版 S10P #068
 // スピアーV 的卡面印的是 SR，日版 UR 對應到的是 Secret Rare / Mega Hyper Rare。
 // 同時新增 HR（彩虹卡）與「待確認」兩個分類。
+// 注意：新增「只能手動加入」的分類**不需要**動這個版本號。ensureSeeded() 對
+// 資料庫裡不存在的分類會直接新增，不會碰既有分類的對照設定；版本號一旦變動
+// 反而會把既有內建分類的 rarities 整份重設，可能蓋掉使用者在設定頁改過的對照。
+// 所以這次維持 5 不動。
 export const BUILTIN_RARITY_MAPPING_VERSION = 5;
 
 // 分類 -> 涵蓋的原始稀有度字串（採用資料庫裡實際出現的大小寫寫法）。
@@ -50,7 +54,17 @@ const RARITIES_BY_CATEGORY = {
     "Shiny Ultra Rare", "Full Art Trainer", "Classic Collection",
     "Rare Rainbow", "Rare Shining", "Gold Secret Rare"
   ],
-  UNVERIFIED: []
+  UNVERIFIED: [],
+  // 以下是只能手動加入的分類：刻意留空清單，讓自動對照永遠不會把卡片放進來。
+  RR: [],
+  RRR: [],
+  RADIANT_ZH: [],
+  ACE: [],
+  SSR: [],
+  BWR: [],
+  MUR: [],
+  MA: [],
+  SHINY_ZH: []
 };
 
 export const DEFAULT_CATEGORIES = CARD_CATEGORY_DEFS.map((def) => ({

@@ -116,12 +116,25 @@ export async function loadStaticData() {
 // refreshCategoryOverrideForCard() 局部更新，不需要重新載入整份卡表。
 export async function applyCategoryOverrides() {
   const overrides = await getAllCategoryOverrides();
-  for (const rec of overrides) {
-    const card = cardsById.get(rec.cardId);
+  const overrideMap = new Map(overrides.map((o) => [o.cardId, o.categoryId]));
+
+  // 一定要先把「目前帶著手動分類、但資料庫裡已經沒有那筆紀錄」的卡片還原成
+  // 自動分類，否則批量復原（把覆寫刪掉）之後，記憶體裡的卡片會繼續停在舊分類，
+  // 畫面上看起來像復原失敗。
+  for (const card of cardsList) {
+    if (card.categoryOverrideId && !overrideMap.has(card.id)) {
+      card.categoryOverrideId = null;
+      card.rarityCategoryId = card.autoRarityCategoryId;
+      card.categoryIds = card.autoCategoryIds;
+    }
+  }
+
+  for (const [cardId, categoryId] of overrideMap) {
+    const card = cardsById.get(cardId);
     if (!card) continue; // 卡表換版後可能有對不到的紀錄，保留在 DB 不動它
-    card.categoryOverrideId = rec.categoryId;
-    card.rarityCategoryId = resolveRarityCategoryId(card, rec.categoryId);
-    card.categoryIds = resolveCategoryIds(card, rec.categoryId);
+    card.categoryOverrideId = categoryId;
+    card.rarityCategoryId = resolveRarityCategoryId(card, categoryId);
+    card.categoryIds = resolveCategoryIds(card, categoryId);
   }
 }
 

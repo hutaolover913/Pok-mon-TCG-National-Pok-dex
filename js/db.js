@@ -352,6 +352,192 @@ export async function clearCategoryOverride(cardId) {
   return existing || null;
 }
 
+// ---------- 批量操作（整批成功或整批失敗） ----------
+// 全部走同一個 IndexedDB 交易：只要中途任何一筆失敗，整個交易會 abort，
+// 資料庫回到操作前的狀態，不會留下「改了一半」的結果。
+
+/**
+ * 批量指定手動分類。
+ * @param {string[]} cardIds
+ * @param {string} categoryId
+ * @returns {Promise<{moved:number, before:Array}>} before 是每張卡原本的手動分類
+ *          （null 代表原本是自動分類），給「復原這次移動」逐張還原用。
+ */
+export async function bulkSetCategoryOverride(cardIds, categoryId) {
+  const db = await openDB();
+  const ids = Array.from(new Set(cardIds));
+  const existing = await getAllCategoryOverrides();
+  const prevMap = new Map(existing.map((o) => [o.cardId, o.categoryId]));
+  const before = ids.map((id) => ({ cardId: id, categoryId: prevMap.get(id) ?? null }));
+
+  const now = Date.now();
+  const t = tx(db, ["cardCategoryOverrides"], "readwrite");
+  const store = t.objectStore("cardCategoryOverrides");
+  for (const id of ids) {
+    const old = existing.find((o) => o.cardId === id);
+    store.put({ cardId: id, categoryId, createdAt: old ? old.createdAt : now, updatedAt: now });
+  }
+  await new Promise((resolve, reject) => {
+    t.oncomplete = resolve;
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error("批量分類交易被中止"));
+  });
+  return { moved: ids.length, before };
+}
+
+/**
+ * 還原一次批量移動：把每張卡的手動分類放回操作前的值。
+ * categoryId === null 代表原本就沒有手動分類，要刪掉覆寫紀錄（回到自動分類）。
+ */
+export async function bulkRestoreCategoryOverrides(before) {
+  const db = await openDB();
+  const now = Date.now();
+  const t = tx(db, ["cardCategoryOverrides"], "readwrite");
+  const store = t.objectStore("cardCategoryOverrides");
+  for (const rec of before) {
+    if (rec.categoryId === null || rec.categoryId === undefined) {
+      store.delete(rec.cardId);
+    } else {
+      store.put({ cardId: rec.cardId, categoryId: rec.categoryId, createdAt: now, updatedAt: now });
+    }
+  }
+  await new Promise((resolve, reject) => {
+    t.oncomplete = resolve;
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error("還原分類交易被中止"));
+  });
+  return before.length;
+}
+
+/**
+ * 批量清除收藏：把持有張數設為 0。
+ *
+ * 刻意**不刪除** cardOwnership 那一筆紀錄，只把 count 歸零，因為備註
+ * （note）也存在同一筆裡，刪掉會把備註一起弄丟。卡片資料、圖片、手動分類
+ * 完全不在這個交易的範圍內，碰都不會碰到。
+ *
+ * @param {string[]} cardIds 要清除的卡片
+ * @param {string[]} manualFlagIds 要一併清除的手動點亮紀錄 id（可為空陣列）
+ * @returns {Promise<{clearedCards:number, clearedCopies:number, clearedFlags:number, snapshot:object}>}
+ *          snapshot 給「復原上一次清除」用
+ */
+export async function bulkClearOwnership(cardIds, manualFlagIds = []) {
+  const db = await openDB();
+  const ids = Array.from(new Set(cardIds));
+  const flagIds = Array.from(new Set(manualFlagIds));
+
+  const allOwn = await getAllOwnership();
+  const ownMap = new Map(allOwn.map((o) => [o.cardId, o]));
+  const allFlags = await getAllManualFlags();
+  const flagMap = new Map(allFlags.map((f) => [f.id, f]));
+
+  // 只處理真的有東西可清的，數字才不會灌水
+  const affected = ids.filter((id) => (ownMap.get(id) || {}).count > 0);
+  const affectedFlags = flagIds.filter((id) => (flagMap.get(id) || {}).active);
+
+  const snapshot = {
+    takenAt: Date.now(),
+    ownership: affected.map((id) => {
+      const o = ownMap.get(id);
+      return { cardId: o.cardId, speciesIds: o.speciesIds, categoryId: o.categoryId, count: o.count, note: o.note };
+    }),
+    manualFlags: affectedFlags.map((id) => ({ ...flagMap.get(id) }))
+  };
+  const clearedCopies = snapshot.ownership.reduce((sum, o) => sum + o.count, 0);
+
+  const now = Date.now();
+  const t = tx(db, ["cardOwnership", "manualFlags"], "readwrite");
+  const ownStore = t.objectStore("cardOwnership");
+  const flagStore = t.objectStore("manualFlags");
+  for (const rec of snapshot.ownership) {
+    const current = ownMap.get(rec.cardId);
+    ownStore.put({ ...current, count: 0, updatedAt: now }); // note 原樣保留
+  }
+  for (const f of snapshot.manualFlags) {
+    flagStore.put({ ...flagMap.get(f.id), active: false, updatedAt: now });
+  }
+  await new Promise((resolve, reject) => {
+    t.oncomplete = resolve;
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error("清除收藏交易被中止"));
+  });
+
+  await setSetting("lastClearSnapshot", snapshot);
+  return {
+    clearedCards: snapshot.ownership.length,
+    clearedCopies,
+    clearedFlags: snapshot.manualFlags.length,
+    snapshot
+  };
+}
+
+/**
+ * 復原上一次清除。
+ *
+ * 會先檢查衝突：如果某張卡在清除之後又被重新收藏過（count 已經不是 0），
+ * 就不覆蓋它，改列進 conflicts 回報，由介面告訴使用者。
+ */
+export async function restoreLastClear({ overwriteConflicts = false } = {}) {
+  const snapshot = await getSetting("lastClearSnapshot", null);
+  if (!snapshot || !Array.isArray(snapshot.ownership)) {
+    return { restored: 0, conflicts: [], missing: true };
+  }
+  const db = await openDB();
+  const allOwn = await getAllOwnership();
+  const ownMap = new Map(allOwn.map((o) => [o.cardId, o]));
+
+  const conflicts = [];
+  const toRestore = [];
+  for (const rec of snapshot.ownership) {
+    const current = ownMap.get(rec.cardId);
+    if (current && current.count > 0 && !overwriteConflicts) {
+      conflicts.push({ cardId: rec.cardId, currentCount: current.count, snapshotCount: rec.count });
+      continue;
+    }
+    toRestore.push(rec);
+  }
+
+  const now = Date.now();
+  const t = tx(db, ["cardOwnership", "manualFlags"], "readwrite");
+  const ownStore = t.objectStore("cardOwnership");
+  const flagStore = t.objectStore("manualFlags");
+  for (const rec of toRestore) {
+    const current = ownMap.get(rec.cardId);
+    ownStore.put({
+      ...(current || {}),
+      cardId: rec.cardId,
+      speciesIds: rec.speciesIds,
+      categoryId: rec.categoryId,
+      count: rec.count,
+      // 備註沿用資料庫現有的（清除時本來就沒動它），快照只是保底
+      note: current ? current.note : rec.note,
+      updatedAt: now
+    });
+  }
+  for (const f of snapshot.manualFlags || []) {
+    flagStore.put({ ...f, active: true, updatedAt: now });
+  }
+  await new Promise((resolve, reject) => {
+    t.oncomplete = resolve;
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error("復原清除交易被中止"));
+  });
+
+  if (conflicts.length === 0) await setSetting("lastClearSnapshot", null);
+  return { restored: toRestore.length, restoredFlags: (snapshot.manualFlags || []).length, conflicts, missing: false };
+}
+
+export async function getLastClearSnapshotInfo() {
+  const snapshot = await getSetting("lastClearSnapshot", null);
+  if (!snapshot) return null;
+  return {
+    takenAt: snapshot.takenAt,
+    cards: (snapshot.ownership || []).length,
+    copies: (snapshot.ownership || []).reduce((s, o) => s + o.count, 0),
+    flags: (snapshot.manualFlags || []).length
+  };
+}
+
 // ---------- 卡片 ID 遷移 ----------
 // 卡片資料庫改版（例如換了資料來源、卡片 ID 規則不同）時，用這個機制把使用者
 // 既有的實際收藏紀錄從舊 ID 搬到新 ID，而不是讓收藏紀錄憑空消失。
