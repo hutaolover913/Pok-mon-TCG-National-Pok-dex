@@ -122,6 +122,80 @@ def norm_name(s):
     return re.sub(r"\s+", "", html.unescape(str(s or ""))).lower()
 
 
+TCGDEX_API = "https://api.tcgdex.net/v2"
+
+
+def fetch_json(url):
+    last = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            time.sleep(INTERVAL * 0.4 + random.random() * 0.15)
+            r = session().get(url, timeout=TIMEOUT)
+            if r.status_code == 404:
+                return None, "http_404"
+            if r.status_code == 429:
+                time.sleep(float(r.headers.get("Retry-After", 3 * attempt)))
+                continue
+            if r.status_code != 200:
+                last = "http_" + str(r.status_code)
+                time.sleep(1.0 * attempt)
+                continue
+            return r.json(), None
+        except Exception as exc:
+            last = str(exc)[:100]
+            time.sleep(1.0 * attempt)
+    return None, last or "unknown"
+
+
+def from_tcgdex(row, lang, set_id, num, src_id, key):
+    """來源網址指向 TCGdex 原始碼倉庫時，改用它的公開 API 取結構化資料。
+
+    比硬解析 .ts 原始碼可靠，而且 API 會一起給圖片基底網址。
+    抓不到就標 needs_review，不會當成成功。
+    """
+    url = TCGDEX_API + "/" + lang + "/cards/" + set_id + "-" + num
+    data, err = fetch_json(url)
+    if data is None:
+        return key, {"status": "needs_review", "reason": "TCGdex API 取不到（" + str(err) + "）",
+                     "url": url, "sourceId": src_id}
+
+    api_name = data.get("name")
+    excel_name = str(row.get("卡片名稱") or "").strip()
+    if api_name and excel_name and norm_name(api_name) != norm_name(excel_name):
+        return key, {"status": "needs_review",
+                     "reason": "卡名不符（API " + str(api_name) + " / Excel " + excel_name + "）",
+                     "url": url, "sourceId": src_id}
+    if not api_name:
+        return key, {"status": "needs_review", "reason": "API 沒有回傳卡名", "url": url, "sourceId": src_id}
+
+    image_base = data.get("image")
+    return key, {
+        "status": "ok",
+        "via": "tcgdex_api",
+        "sourceId": src_id,
+        "language": lang,
+        "setId": set_id,
+        "cardNumber": str(row.get("完整卡號／來源卡號") or "").strip(),
+        "localNumber": num,
+        "name": api_name,
+        "nameFromPage": True,
+        "cardType": data.get("category") or row.get("卡片類型"),
+        "originalRarity": data.get("rarity") or row.get("來源原始稀有度"),
+        "seriesId": ((data.get("set") or {}).get("serie") or {}).get("id") or row.get("系列代碼"),
+        "setName": ((data.get("set") or {}).get("name")) or row.get("卡包／擴充包名稱"),
+        "seriesName": row.get("所屬大系列"),
+        "releaseDate": row.get("發售日期"),
+        "dexNumber": (data.get("dexId") or [None])[0] or row.get("全國圖鑑編號"),
+        "illustrator": data.get("illustrator") or row.get("繪師"),
+        "regulationMark": data.get("regulationMark") or row.get("規則標記"),
+        "sourceUrl": url,
+        # TCGdex 的圖片是基底網址，實際檔案由 step5 那套 low/high + webp/png 邏輯決定
+        "imageBase": image_base,
+        "imageUrl": (image_base + "/low.webp") if image_base else None,
+        "fetchedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 def process(row):
     lang = LANG.get(str(row.get("語言／發行地區") or "").strip())
     set_id = str(row.get("卡包代碼") or "").strip()
@@ -134,6 +208,18 @@ def process(row):
         return key, {"status": "skipped", "reason": "語言／卡包／卡號不完整", "sourceId": src_id}
 
     url = str(row.get("卡片資料來源網址") or "").strip()
+
+    # 來源分三種，各走各的路徑：
+    #   limitlesstcg.com -> 抓卡片頁，比對卡名後取頁面上的圖片
+    #   github.com/tcgdex -> 該列指向 TCGdex 原始碼，改用它的公開 API
+    #   bulbapedia -> 沒有可靠的圖片與完整卡名，直接列人工確認
+    if "bulbapedia" in url:
+        return key, {"status": "needs_review",
+                     "reason": "來源是 Bulbapedia 條目，沒有逐卡圖片，Excel 也註明完整名稱待補",
+                     "url": url, "sourceId": src_id}
+    if "github.com/tcgdex" in url or "raw.githubusercontent.com/tcgdex" in url:
+        return from_tcgdex(row, lang, set_id, num, src_id, key)
+
     if not url:
         base = "https://limitlesstcg.com/cards/jp/" if lang == "ja" else "https://limitlesstcg.com/cards/"
         url = base + set_id + "/" + num
@@ -144,22 +230,29 @@ def process(row):
 
     page_name, image_url = parse_page(text)
     excel_name = str(row.get("卡片名稱") or "").strip()
-    if page_name and excel_name and norm_name(page_name) != norm_name(excel_name):
-        return key, {
-            "status": "needs_review",
-            "reason": "卡名不符（頁面 " + str(page_name) + " / Excel " + excel_name + "）",
-            "url": url, "sourceId": src_id
-        }
+
+    # 解析不出卡名就不能算成功 —— 先前這裡漏判，讓 3,867 筆未驗證的列被標成 ok
+    if not page_name:
+        return key, {"status": "needs_review", "reason": "頁面解析不出卡名，無法確認是同一張",
+                     "url": url, "sourceId": src_id}
+    if excel_name and norm_name(page_name) != norm_name(excel_name):
+        return key, {"status": "needs_review",
+                     "reason": "卡名不符（頁面 " + page_name + " / Excel " + excel_name + "）",
+                     "url": url, "sourceId": src_id}
+    if not image_url:
+        return key, {"status": "needs_review", "reason": "頁面上找不到卡圖網址",
+                     "url": url, "sourceId": src_id}
 
     return key, {
         "status": "ok",
+        "via": "limitless_page",
         "sourceId": src_id,
         "language": lang,
         "setId": set_id,
         "cardNumber": str(raw_num or "").strip(),
         "localNumber": num,
-        "name": page_name or excel_name,
-        "nameFromPage": bool(page_name),
+        "name": page_name,
+        "nameFromPage": True,
         "cardType": row.get("卡片類型"),
         "originalRarity": row.get("來源原始稀有度"),
         "seriesId": row.get("系列代碼"),
