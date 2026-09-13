@@ -1013,3 +1013,4 @@ img.img-fallback { opacity: 0.6; }
 @media (prefers-color-scheme: dark) {
   .bulk-check { background: rgba(28, 30, 40, 0.92); }
 }
+.bulk-progress { font-size: 12px; color: var(--text-dim); }

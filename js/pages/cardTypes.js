@@ -17,8 +17,9 @@ import { getAllOwnership, getOwnership, setOwnership } from "../db.js";
 import { escapeHtml, imgFallbackAttr, debounce, padDex, showToast, PLACEHOLDER_IMAGE } from "../utils.js";
 import { renderCategoryPicker, bindCategoryPickers } from "../components/categoryPicker.js";
 import {
-  createSelection, renderSelectCheckbox, renderBulkBar,
-  bindBulkBar, bindCheckboxes, runOnce
+  createSelection, renderSelectCheckbox, renderBulkBar, refreshBulkBar,
+  bindBulkBar, bindCheckboxDelegation, syncSelectionToDom, setBulkProgress,
+  runOnce
 } from "../components/bulkSelect.js";
 import { bulkSetCategoryOverride, bulkRestoreCategoryOverrides } from "../db.js";
 import { applyCategoryOverrides } from "../data.js";
@@ -459,6 +460,8 @@ async function refreshResultLine() {
 
 // ------------------------------------------------------------- 批量編輯
 
+// 工具列骨架：只有「列表重畫」或「進出批量模式」才會走到這裡。
+// 選取數量的變動不經過這裡，走 refreshCounts()，所以不會重綁監聽器。
 function renderBulkControls() {
   const host = document.getElementById("ct-bulk");
   if (!host) return;
@@ -475,34 +478,41 @@ function renderBulkControls() {
     onToggleMode: (on) => {
       bulkMode = on;
       if (!on) selection.clear();
-      draw();
+      draw(); // 進出批量模式要加／去掉勾選框，這時才需要重畫
     },
     onSelectPage: () => {
+      // 一次全部加進集合，再一次同步到 DOM；不重畫、不重讀資料庫
       lastShown.forEach((c) => selection.add(c.id));
-      draw();
+      syncSelectionToDom(document.getElementById("ct-grid"), selection);
+      refreshCounts();
     },
     onSelectAll: () => {
       lastFiltered.forEach((c) => selection.add(c.id));
+      syncSelectionToDom(document.getElementById("ct-grid"), selection);
+      refreshCounts();
       showToast(`已選取全部篩選結果共 ${lastFiltered.length} 張（不只目前顯示的 ${lastShown.length} 張）`);
-      draw();
     },
     onClearSelection: () => {
       selection.clear();
-      draw();
+      syncSelectionToDom(document.getElementById("ct-grid"), selection);
+      refreshCounts();
     }
   });
 
   const moveBtn = document.getElementById("ct-bulk-move");
   if (moveBtn) moveBtn.addEventListener("click", openMoveDialog);
 
-  const grid = document.getElementById("ct-grid");
-  if (grid) bindCheckboxes(grid, selection, () => renderBulkControls());
-  // 只重畫工具列上的數字時，卡片格的樣式也要跟著更新
-  if (grid) {
-    grid.querySelectorAll(".ct-cell").forEach((cell) => {
-      cell.classList.toggle("selected", selection.has(cell.getAttribute("data-card-id")));
-    });
-  }
+  // 事件委派：整個 grid 只綁一個 change，綁過就不再綁
+  bindCheckboxDelegation(document.getElementById("ct-grid"), selection, refreshCounts);
+}
+
+/** 只更新工具列數字與主按鈕，不碰列表。 */
+function refreshCounts() {
+  refreshBulkBar(document.getElementById("ct-bulk"), {
+    selected: selection.size,
+    actionLabel: `移動到分類…（${selection.size}）`,
+    actionId: "ct-bulk-move"
+  });
 }
 
 function openMoveDialog() {
@@ -552,11 +562,19 @@ function openMoveDialog() {
     const target = select.value;
     confirmBtn.disabled = true;
     confirmBtn.textContent = "移動中…";
+    const host = document.getElementById("ct-bulk");
     const res = await runOnce("bulk-move", async () => {
       try {
-        // 整批寫在同一個 IndexedDB 交易裡：全成功或全不生效
-        const { moved, before } = await bulkSetCategoryOverride(ids, target);
+        // ids 在開對話框時就固定了，之後列表怎麼變都不影響這次要改的對象
+        // 整批寫在同一個 IndexedDB 交易裡（全成功或全不生效），但請求是分批
+        // 送出的，所以寫入期間畫面仍然可以捲動、進度也是真的在跑
+        setBulkProgress(host, `寫入中 0/${ids.length}`);
+        const { moved, before } = await bulkSetCategoryOverride(ids, target, (done, total) => {
+          setBulkProgress(host, `寫入中 ${done}/${total}`);
+          confirmBtn.textContent = `移動中… ${Math.round((done / total) * 100)}%`;
+        });
         await applyCategoryOverrides();
+        setBulkProgress(host, "");
         dlg.remove();
         selection.clear();
         await draw();
@@ -567,7 +585,11 @@ function openMoveDialog() {
           onAction: async () => {
             await runOnce("bulk-move-undo", async () => {
               try {
-                const n = await bulkRestoreCategoryOverrides(before);
+                const host2 = document.getElementById("ct-bulk");
+                const n = await bulkRestoreCategoryOverrides(before, (done, total) => {
+                  setBulkProgress(host2, `復原中 ${done}/${total}`);
+                });
+                setBulkProgress(host2, "");
                 await applyCategoryOverrides();
                 await draw();
                 showToast(`已復原 ${n} 張卡片的分類`);
@@ -579,6 +601,7 @@ function openMoveDialog() {
         });
         return { ok: true };
       } catch (err) {
+        setBulkProgress(host, "");
         confirmBtn.disabled = false;
         confirmBtn.textContent = "確認移動";
         showToast(`移動失敗，資料未變更：${err && err.message ? err.message : err}`, {

@@ -13,8 +13,9 @@ import { CARD_CATEGORY_DEFS, getCategoryDef } from "../cardCategories.js";
 import { renderPokemonTile } from "../components/pokemonTile.js";
 import { escapeHtml, padDex, debounce, showToast, imgFallbackAttr, PLACEHOLDER_IMAGE } from "../utils.js";
 import {
-  createSelection, renderSelectCheckbox, renderBulkBar,
-  bindBulkBar, bindCheckboxes, runOnce
+  createSelection, renderSelectCheckbox, renderBulkBar, refreshBulkBar,
+  bindBulkBar, bindCheckboxDelegation, syncSelectionToDom, setBulkProgress,
+  runOnce
 } from "../components/bulkSelect.js";
 import { downloadBlob } from "../exporters.js";
 
@@ -280,6 +281,7 @@ function bindCollectionFilters() {
   });
 }
 
+// 工具列骨架：只有列表重畫或進出批量模式才呼叫。選取數量變動走 refreshCounts()。
 function renderCollectionBulk() {
   const host = document.getElementById("col-bulk");
   if (!host) return;
@@ -300,29 +302,34 @@ function renderCollectionBulk() {
     },
     onSelectPage: () => {
       lastShownCards.forEach(({ card }) => selection.add(card.id));
-      drawOwnedCards();
+      syncSelectionToDom(document.getElementById("col-cards"), selection);
+      refreshCounts();
     },
     onSelectAll: () => {
       lastFilteredCards.forEach(({ card }) => selection.add(card.id));
-      showToast(`已選取全部篩選結果共 ${lastFilteredCards.length} 張`);
-      drawOwnedCards();
+      syncSelectionToDom(document.getElementById("col-cards"), selection);
+      refreshCounts();
+      showToast(`已選取全部篩選結果共 ${lastFilteredCards.length} 張（不只目前顯示的 ${lastShownCards.length} 張）`);
     },
     onClearSelection: () => {
       selection.clear();
-      drawOwnedCards();
+      syncSelectionToDom(document.getElementById("col-cards"), selection);
+      refreshCounts();
     }
   });
 
   const btn = document.getElementById("col-bulk-clear");
   if (btn) btn.addEventListener("click", () => openClearDialog("selected"));
 
-  const list = document.getElementById("col-cards");
-  if (list) {
-    bindCheckboxes(list, selection, () => renderCollectionBulk());
-    list.querySelectorAll(".owned-card-row").forEach((row) => {
-      row.classList.toggle("selected", selection.has(row.getAttribute("data-card-id")));
-    });
-  }
+  bindCheckboxDelegation(document.getElementById("col-cards"), selection, refreshCounts);
+}
+
+function refreshCounts() {
+  refreshBulkBar(document.getElementById("col-bulk"), {
+    selected: selection.size,
+    actionLabel: `清除已勾選的收藏（${selection.size}）`,
+    actionId: "col-bulk-clear"
+  });
 }
 
 // ------------------------------------------------------------ 清除收藏
@@ -484,11 +491,18 @@ async function openClearDialog(initialScope) {
 
   confirmBtn.addEventListener("click", async () => {
     if (!plan) return;
+    // 這次要處理的目標在按下按鈕的當下就固定住，之後列表變動也不影響
+    const targetCardIds = plan.cardIds.slice();
+    const targetFlagIds = plan.flagIds.slice();
     confirmBtn.disabled = true;
     confirmBtn.textContent = "清除中…";
+    const progress = $("#clear-summary");
     const res = await runOnce("clear-collection", async () => {
       try {
-        const r = await bulkClearOwnership(plan.cardIds, plan.flagIds);
+        const r = await bulkClearOwnership(targetCardIds, targetFlagIds, (done, total) => {
+          if (progress) progress.innerHTML = `<div>清除中 ${done}/${total}…</div>`;
+          confirmBtn.textContent = `清除中… ${Math.round((done / total) * 100)}%`;
+        });
         dlg.remove();
         selection.clear();
         showToast(

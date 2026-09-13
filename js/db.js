@@ -353,6 +353,45 @@ export async function clearCategoryOverride(cardId) {
 }
 
 // ---------- 批量操作（整批成功或整批失敗） ----------
+
+/**
+ * 在「同一個交易」裡分批送出寫入請求。
+ *
+ * 為什麼需要這個：把 9,108 筆 put 寫在一個 for 迴圈裡，主執行緒會被
+ * 結構化複製與索引維護卡住約 1.5～2 秒（實測），期間畫面完全不回應。
+ * 但為了整批成功或整批回復，又不能拆成多個交易。
+ *
+ * 解法：一次只送一批（預設 300 筆），然後等這一批最後一個請求的 onsuccess
+ * 再送下一批。IndexedDB 的交易只要「還有未完成的請求」就會保持開啟，所以
+ * 原子性不變；而每批之間的回呼是新的一個 task，主執行緒因此有空檔去處理
+ * 捲動、重繪與進度更新。
+ *
+ * @param {IDBObjectStore} store
+ * @param {Array<{type:"put"|"delete", value?:any, key?:any}>} ops
+ * @param {(done:number,total:number)=>void} [onProgress]
+ */
+function runOpsChunked(store, ops, onProgress, chunkSize = 300) {
+  return new Promise((resolve, reject) => {
+    let i = 0;
+    const step = () => {
+      if (i >= ops.length) {
+        resolve();
+        return;
+      }
+      const end = Math.min(i + chunkSize, ops.length);
+      let lastReq = null;
+      for (; i < end; i++) {
+        const op = ops[i];
+        lastReq = op.type === "delete" ? store.delete(op.key) : store.put(op.value);
+      }
+      if (onProgress) onProgress(i, ops.length);
+      lastReq.onsuccess = step;
+      lastReq.onerror = () => reject(lastReq.error);
+    };
+    step();
+  });
+}
+
 // 全部走同一個 IndexedDB 交易：只要中途任何一筆失敗，整個交易會 abort，
 // 資料庫回到操作前的狀態，不會留下「改了一半」的結果。
 
@@ -363,20 +402,25 @@ export async function clearCategoryOverride(cardId) {
  * @returns {Promise<{moved:number, before:Array}>} before 是每張卡原本的手動分類
  *          （null 代表原本是自動分類），給「復原這次移動」逐張還原用。
  */
-export async function bulkSetCategoryOverride(cardIds, categoryId) {
+export async function bulkSetCategoryOverride(cardIds, categoryId, onProgress) {
   const db = await openDB();
   const ids = Array.from(new Set(cardIds));
   const existing = await getAllCategoryOverrides();
   const prevMap = new Map(existing.map((o) => [o.cardId, o.categoryId]));
   const before = ids.map((id) => ({ cardId: id, categoryId: prevMap.get(id) ?? null }));
 
+  // 用 Map 查原本的 createdAt，不要在迴圈裡 existing.find()：
+  // 那是 O(n²)，一次移動 9,108 張就是 8,300 萬次比對，實測會讓主執行緒
+  // 卡住約 0.5 秒。
+  const createdAtMap = new Map(existing.map((o) => [o.cardId, o.createdAt]));
   const now = Date.now();
   const t = tx(db, ["cardCategoryOverrides"], "readwrite");
   const store = t.objectStore("cardCategoryOverrides");
-  for (const id of ids) {
-    const old = existing.find((o) => o.cardId === id);
-    store.put({ cardId: id, categoryId, createdAt: old ? old.createdAt : now, updatedAt: now });
-  }
+  const ops = ids.map((id) => ({
+    type: "put",
+    value: { cardId: id, categoryId, createdAt: createdAtMap.get(id) ?? now, updatedAt: now }
+  }));
+  await runOpsChunked(store, ops, onProgress);
   await new Promise((resolve, reject) => {
     t.oncomplete = resolve;
     t.onerror = () => reject(t.error);
@@ -389,18 +433,17 @@ export async function bulkSetCategoryOverride(cardIds, categoryId) {
  * 還原一次批量移動：把每張卡的手動分類放回操作前的值。
  * categoryId === null 代表原本就沒有手動分類，要刪掉覆寫紀錄（回到自動分類）。
  */
-export async function bulkRestoreCategoryOverrides(before) {
+export async function bulkRestoreCategoryOverrides(before, onProgress) {
   const db = await openDB();
   const now = Date.now();
   const t = tx(db, ["cardCategoryOverrides"], "readwrite");
   const store = t.objectStore("cardCategoryOverrides");
-  for (const rec of before) {
-    if (rec.categoryId === null || rec.categoryId === undefined) {
-      store.delete(rec.cardId);
-    } else {
-      store.put({ cardId: rec.cardId, categoryId: rec.categoryId, createdAt: now, updatedAt: now });
-    }
-  }
+  const ops = before.map((rec) =>
+    rec.categoryId === null || rec.categoryId === undefined
+      ? { type: "delete", key: rec.cardId }
+      : { type: "put", value: { cardId: rec.cardId, categoryId: rec.categoryId, createdAt: now, updatedAt: now } }
+  );
+  await runOpsChunked(store, ops, onProgress);
   await new Promise((resolve, reject) => {
     t.oncomplete = resolve;
     t.onerror = () => reject(t.error);
@@ -421,7 +464,7 @@ export async function bulkRestoreCategoryOverrides(before) {
  * @returns {Promise<{clearedCards:number, clearedCopies:number, clearedFlags:number, snapshot:object}>}
  *          snapshot 給「復原上一次清除」用
  */
-export async function bulkClearOwnership(cardIds, manualFlagIds = []) {
+export async function bulkClearOwnership(cardIds, manualFlagIds = [], onProgress) {
   const db = await openDB();
   const ids = Array.from(new Set(cardIds));
   const flagIds = Array.from(new Set(manualFlagIds));
@@ -449,13 +492,16 @@ export async function bulkClearOwnership(cardIds, manualFlagIds = []) {
   const t = tx(db, ["cardOwnership", "manualFlags"], "readwrite");
   const ownStore = t.objectStore("cardOwnership");
   const flagStore = t.objectStore("manualFlags");
-  for (const rec of snapshot.ownership) {
-    const current = ownMap.get(rec.cardId);
-    ownStore.put({ ...current, count: 0, updatedAt: now }); // note 原樣保留
-  }
-  for (const f of snapshot.manualFlags) {
-    flagStore.put({ ...flagMap.get(f.id), active: false, updatedAt: now });
-  }
+  const ownOps = snapshot.ownership.map((rec) => ({
+    type: "put",
+    value: { ...ownMap.get(rec.cardId), count: 0, updatedAt: now } // note 原樣保留
+  }));
+  await runOpsChunked(ownStore, ownOps, onProgress);
+  const flagOps = snapshot.manualFlags.map((f) => ({
+    type: "put",
+    value: { ...flagMap.get(f.id), active: false, updatedAt: now }
+  }));
+  await runOpsChunked(flagStore, flagOps);
   await new Promise((resolve, reject) => {
     t.oncomplete = resolve;
     t.onerror = () => reject(t.error);
@@ -477,7 +523,7 @@ export async function bulkClearOwnership(cardIds, manualFlagIds = []) {
  * 會先檢查衝突：如果某張卡在清除之後又被重新收藏過（count 已經不是 0），
  * 就不覆蓋它，改列進 conflicts 回報，由介面告訴使用者。
  */
-export async function restoreLastClear({ overwriteConflicts = false } = {}) {
+export async function restoreLastClear({ overwriteConflicts = false, onProgress } = {}) {
   const snapshot = await getSetting("lastClearSnapshot", null);
   if (!snapshot || !Array.isArray(snapshot.ownership)) {
     return { restored: 0, conflicts: [], missing: true };
@@ -501,22 +547,27 @@ export async function restoreLastClear({ overwriteConflicts = false } = {}) {
   const t = tx(db, ["cardOwnership", "manualFlags"], "readwrite");
   const ownStore = t.objectStore("cardOwnership");
   const flagStore = t.objectStore("manualFlags");
-  for (const rec of toRestore) {
+  const ownOps = toRestore.map((rec) => {
     const current = ownMap.get(rec.cardId);
-    ownStore.put({
-      ...(current || {}),
-      cardId: rec.cardId,
-      speciesIds: rec.speciesIds,
-      categoryId: rec.categoryId,
-      count: rec.count,
-      // 備註沿用資料庫現有的（清除時本來就沒動它），快照只是保底
-      note: current ? current.note : rec.note,
-      updatedAt: now
-    });
-  }
-  for (const f of snapshot.manualFlags || []) {
-    flagStore.put({ ...f, active: true, updatedAt: now });
-  }
+    return {
+      type: "put",
+      value: {
+        ...(current || {}),
+        cardId: rec.cardId,
+        speciesIds: rec.speciesIds,
+        categoryId: rec.categoryId,
+        count: rec.count,
+        // 備註沿用資料庫現有的（清除時本來就沒動它），快照只是保底
+        note: current ? current.note : rec.note,
+        updatedAt: now
+      }
+    };
+  });
+  await runOpsChunked(ownStore, ownOps, onProgress);
+  const flagOps = (snapshot.manualFlags || []).map((f) => ({
+    type: "put", value: { ...f, active: true, updatedAt: now }
+  }));
+  await runOpsChunked(flagStore, flagOps);
   await new Promise((resolve, reject) => {
     t.oncomplete = resolve;
     t.onerror = () => reject(t.error);
