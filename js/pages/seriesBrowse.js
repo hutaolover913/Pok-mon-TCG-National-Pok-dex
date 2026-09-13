@@ -8,10 +8,11 @@
 import { getAllCards, getSpecies, getAllSetsMeta } from "../data.js";
 import {
   getSeriesList, getSetsOfSeries, getCardsOfSet, getSeriesDisplay,
-  seriesOfCard, getRegulationMark, markLabel, getAllMarks, MARK_STATUS
+  seriesOfCard, getRegulationMark, markLabel, getAllMarks, MARK_STATUS,
+  SET_SORT, getSetSort, setSetSort, sortSets, formatReleaseDate, hasValidReleaseDate
 } from "../seriesCatalog.js";
 import { CARD_CATEGORY_DEFS, getCategoryDef } from "../cardCategories.js";
-import { getAllOwnership } from "../db.js";
+import { getAllOwnership, getSetting, setSetting } from "../db.js";
 import { escapeHtml, padDex, debounce, imgFallbackAttr, PLACEHOLDER_IMAGE } from "../utils.js";
 
 const LANG_LABEL = { en: "英文版（美版）", ja: "日文版", "zh-Hant": "繁體中文版", "zh-Hans": "簡體中文版" };
@@ -98,9 +99,14 @@ export async function renderSeriesDetail(params) {
   const disp = seriesId === "all"
     ? { zh: "全部系列", en: "All series", ja: "" }
     : getSeriesDisplay(seriesId);
-  const setsOfSeries = seriesId === "all"
-    ? getSeriesList().flatMap((s) => getSetsOfSeries(s.id))
-    : getSetsOfSeries(seriesId);
+  // 先把「全部符合條件的卡包」排好，再做選單與列表，不是只排目前顯示那一批
+  const setsOfSeries = sortSets(
+    seriesId === "all"
+      ? getSeriesList().flatMap((s) => getSetsOfSeries(s.id))
+      : getSetsOfSeries(seriesId).slice(),
+    getSetSort()
+  );
+  const undatedCount = setsOfSeries.filter((s) => !hasValidReleaseDate(s)).length;
 
   const marks = getAllMarks();
 
@@ -122,7 +128,7 @@ export async function renderSeriesDetail(params) {
         <select id="sb-set" class="cat-select">
           <option value="all">全部卡包（${setsOfSeries.length}）</option>
           ${setsOfSeries.map((s) => `
-            <option value="${escapeHtml(s.setKey)}">${escapeHtml(s.setName)}（${escapeHtml(s.setId)}・${escapeHtml(LANG_LABEL[s.language] || s.language)}）</option>
+            <option value="${escapeHtml(s.setKey)}">${escapeHtml(formatReleaseDate(s))}｜${escapeHtml(s.setName)}（${escapeHtml(s.setId)}・${escapeHtml(LANG_LABEL[s.language] || s.language)}）</option>
           `).join("")}
         </select>
         <select id="sb-lang" class="cat-select">
@@ -130,7 +136,24 @@ export async function renderSeriesDetail(params) {
           ${Array.from(new Set(setsOfSeries.map((s) => s.language))).map((l) =>
             `<option value="${l}">${escapeHtml(LANG_LABEL[l] || l)}</option>`).join("")}
         </select>
+        <select id="sb-setsort" class="cat-select">
+          <option value="${SET_SORT.NEWEST}">卡包：由新到舊</option>
+          <option value="${SET_SORT.OLDEST}">卡包：由舊到新</option>
+        </select>
       </div>
+
+      <details class="set-list-block"${f.setKey !== "all" ? "" : ""}>
+        <summary>這個範圍內的卡包（${setsOfSeries.length}）${
+          undatedCount ? `・其中 ${undatedCount} 個發售日期待確認，固定排最後` : ""}</summary>
+        <div class="set-list">
+          ${setsOfSeries.map((s) => `
+            <button class="set-list-item${f.setKey === s.setKey ? " active" : ""}" data-setkey="${escapeHtml(s.setKey)}">
+              <span class="set-list-date${hasValidReleaseDate(s) ? "" : " undated"}">${escapeHtml(formatReleaseDate(s))}</span>
+              <span class="set-list-name">${escapeHtml(s.setName)}</span>
+              <span class="set-list-meta">${escapeHtml(s.setId)}・${escapeHtml(LANG_LABEL[s.language] || s.language)}・${s.cardCount} 張</span>
+            </button>`).join("")}
+        </div>
+      </details>
       <div class="cat-filter-row">
         <select id="sb-mark" class="cat-select">
           <option value="all">全部規則標記</option>
@@ -158,6 +181,7 @@ export async function renderSeriesDetail(params) {
     <div class="cat-more-wrap"><button id="sb-more" class="text-btn hidden">載入更多</button></div>
   `;
 
+  document.getElementById("sb-setsort").value = getSetSort();
   document.getElementById("sb-series").value = f.seriesId;
   document.getElementById("sb-set").value = f.setKey;
   document.getElementById("sb-lang").value = f.language;
@@ -207,6 +231,34 @@ function bindFilters() {
     f.limit += PAGE_SIZE;
     draw();
   });
+
+  // 排序方向：記住選擇，重新整理與換頁後都沿用
+  document.getElementById("sb-setsort").addEventListener("change", async (e) => {
+    setSetSort(e.target.value);
+    await setSetting(SORT_SETTING_KEY, getSetSort());
+    // 重畫整頁，讓卡包選單與卡包清單一起套用新排序
+    renderSeriesDetail({ id: f.seriesId });
+  });
+
+  document.querySelectorAll(".set-list-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-setkey");
+      f.setKey = f.setKey === key ? "all" : key;   // 再點一次取消
+      f.limit = PAGE_SIZE;
+      document.getElementById("sb-set").value = f.setKey;
+      document.querySelectorAll(".set-list-item").forEach((b) =>
+        b.classList.toggle("active", b.getAttribute("data-setkey") === f.setKey));
+      draw();
+    });
+  });
+}
+
+export const SORT_SETTING_KEY = "setSortDirection";
+
+/** 開機時把使用者上次選的排序方向讀回來。 */
+export async function restoreSetSort() {
+  const saved = await getSetting(SORT_SETTING_KEY, SET_SORT.NEWEST);
+  setSetSort(saved);
 }
 
 function matchesKeyword(card, kw) {

@@ -9,6 +9,7 @@ import { renderCardTypes, renderCardTypeDetail } from "./pages/cardTypes.js";
 import { renderExportPage } from "./pages/exportPage.js";
 import { renderSeriesBrowse, renderSeriesDetail } from "./pages/seriesBrowse.js";
 import { loadRegulationMarks } from "./seriesCatalog.js";
+import { restoreSetSort } from "./pages/seriesBrowse.js";
 import { renderSettings } from "./pages/settings.js";
 import { applyTheme } from "./theme.js";
 import { showToast } from "./utils.js";
@@ -40,6 +41,8 @@ async function boot() {
   await loadStaticData();
   // 規則標記另外一個檔案，抓不到就全部當「待確認」，不影響其他功能
   await loadRegulationMarks();
+  // 卡包排序方向是使用者偏好，開機時讀回來
+  await restoreSetSort();
 
   registerRoute("/", renderHome);
   registerRoute("/pokemon/:id", renderDetail);

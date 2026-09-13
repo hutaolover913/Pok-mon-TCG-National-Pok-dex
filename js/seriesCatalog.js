@@ -105,6 +105,80 @@ export function markLabel(info) {
   return "待確認";
 }
 
+// ---------------------------------------------------------------- 卡包排序
+//
+// 一律依「該語言／發行地區自己的卡包發售日期」排，日版與英文版各用各的日期。
+// 比較用的是真正的時間值（Date.parse），不是直接比字串，避免不同格式的日期
+// 字串排出奇怪的順序。
+//
+// 同一天發售的卡包再依卡包代碼、卡包 ID 排，確保每次顯示順序都一樣。
+// 沒有日期或日期無效的卡包，兩種排序方向下都固定放最後，並標「發售日期待確認」。
+
+export const SET_SORT = { NEWEST: "newest", OLDEST: "oldest" };
+let currentSetSort = SET_SORT.NEWEST;
+
+/** 把卡包的發售日期轉成可比較的時間值；無效回傳 null（代表待確認）。 */
+export function setReleaseTime(meta) {
+  const raw = meta && meta.releaseDate;
+  if (!raw) return null;
+  const t = Date.parse(String(raw).trim());
+  return Number.isFinite(t) ? t : null;
+}
+
+export function hasValidReleaseDate(meta) {
+  return setReleaseTime(meta) !== null;
+}
+
+/** YYYY/MM/DD；沒有有效日期時回傳「發售日期待確認」。 */
+export function formatReleaseDate(meta) {
+  const t = setReleaseTime(meta);
+  if (t === null) return "發售日期待確認";
+  const d = new Date(t);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
+}
+
+/** 就地排序一份卡包清單。回傳同一個陣列，方便串接。 */
+export function sortSets(list, direction = currentSetSort) {
+  const dir = direction === SET_SORT.OLDEST ? 1 : -1;
+  list.sort((a, b) => {
+    const ta = setReleaseTime(a);
+    const tb = setReleaseTime(b);
+    // 沒有日期的一律沉底，不論由新到舊還是由舊到新
+    if (ta === null && tb === null) return cmpStable(a, b);
+    if (ta === null) return 1;
+    if (tb === null) return -1;
+    if (ta !== tb) return (ta - tb) * dir;
+    return cmpStable(a, b);
+  });
+  return list;
+}
+
+function cmpStable(a, b) {
+  return String(a.setId || "").localeCompare(String(b.setId || ""))
+    || String(a.setKey || "").localeCompare(String(b.setKey || ""));
+}
+
+export function getSetSort() {
+  return currentSetSort;
+}
+
+/** 改排序方向：重排所有已建好的清單，不需要重建整個索引。 */
+export function setSetSort(direction) {
+  currentSetSort = direction === SET_SORT.OLDEST ? SET_SORT.OLDEST : SET_SORT.NEWEST;
+  if (catalog) {
+    for (const list of catalog.setsBySeries.values()) sortSets(list, currentSetSort);
+  }
+  return currentSetSort;
+}
+
+/** 全部卡包（跨系列），依目前排序方向排好。 */
+export function getAllSetsSorted(direction = currentSetSort) {
+  const all = [];
+  for (const list of buildCatalog().setsBySeries.values()) all.push(...list);
+  return sortSets(all, direction);
+}
+
 function canonSeries(language, seriesId) {
   return SERIES_CANON[`${language}:${seriesId}`] || SERIES_UNKNOWN;
 }
@@ -159,8 +233,7 @@ export function buildCatalog() {
   }
 
   for (const list of setsBySeries.values()) {
-    // 新的排前面，同日期再依卡包代碼
-    list.sort((a, b) => (b.releaseDate || "").localeCompare(a.releaseDate || "") || a.setId.localeCompare(b.setId));
+    sortSets(list, currentSetSort);
   }
 
   const series = Array.from(seriesAgg.values())

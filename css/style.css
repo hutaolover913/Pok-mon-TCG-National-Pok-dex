@@ -1049,3 +1049,32 @@ img.img-fallback { opacity: 0.6; }
   margin-left: 5px; font-size: 9px; padding: 0 4px; border-radius: 4px;
   border: 1px solid var(--accent-2); color: var(--accent-2);
 }
+
+/* 卡包清單（依發售日期排序） */
+.set-list-block { margin-top: 8px; }
+.set-list-block summary { cursor: pointer; font-size: 12px; color: var(--text-dim); }
+.set-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 5px;
+  margin-top: 7px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.set-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  color: inherit;
+}
+.set-list-item.active { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2) inset; }
+.set-list-date { font-size: 10px; color: var(--accent-2); font-variant-numeric: tabular-nums; }
+.set-list-date.undated { color: var(--warn); }
+.set-list-name { font-size: 12px; font-weight: 600; }
+.set-list-meta { font-size: 10px; color: var(--text-dim); }

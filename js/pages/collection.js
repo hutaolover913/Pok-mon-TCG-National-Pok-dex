@@ -10,6 +10,7 @@ import {
   exportAllData
 } from "../db.js";
 import { CARD_CATEGORY_DEFS, getCategoryDef } from "../cardCategories.js";
+import { sortSets, getSetSort, formatReleaseDate } from "../seriesCatalog.js";
 import { renderPokemonTile } from "../components/pokemonTile.js";
 import { escapeHtml, padDex, debounce, showToast, imgFallbackAttr, PLACEHOLDER_IMAGE } from "../utils.js";
 import {
@@ -164,11 +165,18 @@ function buildFilterOptions(ownership) {
     langSel.insertAdjacentHTML("beforeend", `<option value="${l}">${escapeHtml(LANG_LABEL[l] || l)}</option>`);
   }
   const setSel = document.getElementById("col-set");
-  const keys = Array.from(new Set(owned.map(({ card }) => `${card.language}:${card.setId}`)))
-    .map((k) => ({ key: k, name: (setsMeta[k] || {}).setName || k.split(":")[1] }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  // 卡包選單依發售日期排序，與其他頁面一致
+  const keys = sortSets(
+    Array.from(new Set(owned.map(({ card }) => `${card.language}:${card.setId}`))).map((k) => {
+      const meta = setsMeta[k] || {};
+      return { setKey: k, key: k, setId: meta.setId || k.split(":")[1],
+               name: meta.setName || k.split(":")[1], releaseDate: meta.releaseDate };
+    }),
+    getSetSort()
+  );
   for (const s of keys) {
-    setSel.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(s.key)}">${escapeHtml(s.name)}</option>`);
+    setSel.insertAdjacentHTML("beforeend",
+      `<option value="${escapeHtml(s.key)}">${escapeHtml(formatReleaseDate(s))}｜${escapeHtml(s.name)}</option>`);
   }
 
   catSel.value = cardFilter.categoryId;

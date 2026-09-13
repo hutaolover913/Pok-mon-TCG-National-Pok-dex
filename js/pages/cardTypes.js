@@ -14,6 +14,7 @@ import {
   CONFIDENCE_LABEL
 } from "../cardCategories.js";
 import { getAllOwnership, getOwnership, setOwnership } from "../db.js";
+import { sortSets, getSetSort, formatReleaseDate } from "../seriesCatalog.js";
 import { escapeHtml, imgFallbackAttr, debounce, padDex, showToast, PLACEHOLDER_IMAGE } from "../utils.js";
 import { renderCategoryPicker, bindCategoryPickers } from "../components/categoryPicker.js";
 import {
@@ -172,9 +173,15 @@ export async function renderCardTypeDetail(params) {
   }
 
   const languages = Array.from(new Set(all.map((c) => c.language))).sort();
-  const setKeys = Array.from(new Set(all.map((c) => `${c.language}:${c.setId}`)))
-    .map((k) => ({ key: k, name: (setsMeta[k] || {}).setName || k.split(":")[1] }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  // 卡包選單一律依發售日期排序（與「系列／卡包」頁一致），不是依名稱
+  const setKeys = sortSets(
+    Array.from(new Set(all.map((c) => `${c.language}:${c.setId}`))).map((k) => {
+      const meta = setsMeta[k] || {};
+      return { setKey: k, key: k, setId: meta.setId || k.split(":")[1],
+               name: meta.setName || k.split(":")[1], releaseDate: meta.releaseDate };
+    }),
+    getSetSort()
+  );
 
   app.innerHTML = `
     <header class="page-header">
@@ -199,7 +206,7 @@ export async function renderCardTypeDetail(params) {
         </select>
         <select id="ct-set" class="cat-select">
           <option value="all">全部卡包</option>
-          ${setKeys.map((s) => `<option value="${escapeHtml(s.key)}">${escapeHtml(s.name)}</option>`).join("")}
+          ${setKeys.map((s) => `<option value="${escapeHtml(s.key)}">${escapeHtml(formatReleaseDate(s))}｜${escapeHtml(s.name)}</option>`).join("")}
         </select>
         <select id="ct-sort" class="cat-select">
           <option value="dex">依圖鑑編號</option>
