@@ -1,4 +1,6 @@
 import { getAllSpecies, getCardsForSpecies } from "../data.js";
+import { saveView, readView, clearView } from "../viewState.js";
+import { requestScrollRestore } from "../router.js";
 import { getAllCategories, getAllOwnership } from "../db.js";
 import { renderCategoryBadge } from "../components/badges.js";
 import { escapeHtml, padDex, imgFallbackAttr, PLACEHOLDER_IMAGE } from "../utils.js";
@@ -42,9 +44,16 @@ export async function renderMissing() {
 
   rowsCache = null;
   page = 1;
-  renderNextPage();
+  // 從詳情返回時把先前載到的頁數與捲動位置一起還原
+  const saved = readView("/missing");
+  const wantPages = saved && saved.pages > 1 ? saved.pages : 1;
+  // renderNextPage 是 async —— 一定要 await，否則路由回來時清單還是空的，
+  // 捲動還原會拿到錯的文件高度
+  for (let i = 0; i < wantPages; i++) await renderNextPage();
+  if (saved && saved.scrollY) requestScrollRestore(saved.scrollY);
 
   document.getElementById("missing-cat-filter").addEventListener("change", (e) => {
+    clearView("/missing");
     filterCategory = e.target.value;
     rowsCache = null;
     page = 1;
@@ -52,6 +61,7 @@ export async function renderMissing() {
     renderNextPage();
   });
   document.getElementById("missing-lang-filter").addEventListener("change", (e) => {
+    clearView("/missing");
     filterLanguage = e.target.value;
     rowsCache = null;
     page = 1;
@@ -102,6 +112,7 @@ async function renderNextPage() {
   const container = document.getElementById("missing-list");
   container.insertAdjacentHTML("beforeend", pageRows.map((r) => renderGroup(r, catById)).join(""));
   page++;
+  saveView("/missing", { pages: page - 1 });
 
   const sentinel = document.getElementById("missing-sentinel");
   if (sentinel) {

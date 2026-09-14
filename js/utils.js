@@ -102,3 +102,29 @@ export function formatDate(iso) {
     return iso;
   }
 }
+
+// ---------------------------------------------------- 防連點
+
+const runningKeys = new Set();
+
+/**
+ * 同一個 key 的操作在完成前不會被重複觸發。
+ *
+ * 手機上很容易連按兩下「＋」，如果兩次寫入同時進行，第二次讀到的是第一次
+ * 寫入前的數字，結果就是加了兩下只加到一。這裡擋住重入。
+ *
+ * 原本放在 components/bulkSelect.js，現在計數器也要用，所以移到這裡；
+ * bulkSelect 仍然 re-export，既有呼叫端不用改。
+ */
+export async function runOnce(key, fn) {
+  if (runningKeys.has(key)) {
+    showToast("上一個操作還在進行中，請稍候");
+    return { skipped: true };
+  }
+  runningKeys.add(key);
+  try {
+    return await fn();
+  } finally {
+    runningKeys.delete(key);
+  }
+}

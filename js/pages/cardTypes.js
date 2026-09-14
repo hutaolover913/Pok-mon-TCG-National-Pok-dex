@@ -15,7 +15,7 @@ import {
 } from "../cardCategories.js";
 import { getAllOwnership, getOwnership, setOwnership } from "../db.js";
 import { sortSets, getSetSort, formatReleaseDate } from "../seriesCatalog.js";
-import { escapeHtml, imgFallbackAttr, debounce, padDex, showToast, PLACEHOLDER_IMAGE } from "../utils.js";
+import { escapeHtml, imgFallbackAttr, debounce, padDex, showToast, runOnce, PLACEHOLDER_IMAGE } from "../utils.js";
 import { renderCategoryPicker, bindCategoryPickers } from "../components/categoryPicker.js";
 import { isAppMode } from "../appMode.js";
 import { label } from "../appLabels.js";
@@ -23,8 +23,7 @@ import { saveView, readView } from "../viewState.js";
 import { requestScrollRestore } from "../router.js";
 import {
   createSelection, renderSelectCheckbox, renderBulkBar, refreshBulkBar,
-  bindBulkBar, bindCheckboxDelegation, syncSelectionToDom, setBulkProgress,
-  runOnce
+  bindBulkBar, bindCheckboxDelegation, syncSelectionToDom, setBulkProgress
 } from "../components/bulkSelect.js";
 import { bulkSetCategoryOverride, bulkRestoreCategoryOverrides } from "../db.js";
 import { applyCategoryOverrides } from "../data.js";
@@ -417,19 +416,9 @@ function bindCellEvents() {
     const cardId = cell.getAttribute("data-card-id");
     const valueEl = cell.querySelector(".count-value");
 
-    const apply = async (next, { toastOnZero = false } = {}) => {
-      const card = getCard(cardId);
-      if (!card) return;
-      const existing = await getOwnership(cardId);
-      const before = existing ? existing.count : 0;
-      await setOwnership({
-        cardId,
-        speciesIds: card.dexNumbers,
-        categoryId: card.categoryId,
-        count: next,
-        // 一定要把原本的備註帶回去，不然在這一頁加減張數會把詳細頁寫的備註清掉
-        note: existing ? existing.note : ""
-      });
+    // 先動畫面再寫入，失敗就整個還原。runOnce 擋住同一張卡的連點：
+    // 兩次寫入同時進行的話，後一次會讀到前一次寫入前的數字，按兩下只加到一。
+    const paint = (next) => {
       valueEl.textContent = next;
       cell.classList.toggle("owned", next > 0);
       const flag = cell.querySelector(".ct-owned-flag");
@@ -440,14 +429,41 @@ function bindCellEvents() {
       } else if (next === 0 && flag) {
         flag.remove();
       }
-      await refreshResultLine();
-      if (toastOnZero && before > 0 && next === 0) {
-        showToast("已將這張卡片的收藏張數歸零", {
-          actionLabel: "復原",
-          onAction: () => apply(before)
-        });
-      }
     };
+
+    const apply = async (next, { toastOnZero = false } = {}) =>
+      runOnce("own:" + cardId, async () => {
+        const card = getCard(cardId);
+        if (!card) return;
+        const shown = parseInt(valueEl.textContent, 10);
+        const existing = await getOwnership(cardId);
+        const before = existing ? existing.count : 0;
+
+        paint(next);
+        try {
+          await setOwnership({
+            cardId,
+            speciesIds: card.dexNumbers,
+            categoryId: card.categoryId,
+            count: next,
+            // 一定要把原本的備註帶回去，不然在這一頁加減張數會把詳細頁寫的備註清掉
+            note: existing ? existing.note : ""
+          });
+        } catch (err) {
+          paint(shown);
+          showToast("收藏沒有存起來，已還原：" + (err && err.message ? err.message : err),
+            { duration: 12000 });
+          return;
+        }
+
+        await refreshResultLine();
+        if (toastOnZero && before > 0 && next === 0) {
+          showToast("已將這張卡片的收藏張數歸零", {
+            actionLabel: "復原",
+            onAction: () => apply(before)
+          });
+        }
+      });
 
     cell.querySelector('[data-action="inc"]').addEventListener("click", () => {
       apply(parseInt(valueEl.textContent, 10) + 1);

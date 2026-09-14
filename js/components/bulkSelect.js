@@ -167,19 +167,8 @@ export function syncSelectionToDom(container, selection) {
 /**
  * 防止重複提交：同一個 key 的操作還沒跑完之前，再按不會重複執行。
  */
-const running = new Set();
-export async function runOnce(key, fn) {
-  if (running.has(key)) {
-    showToast("上一個操作還在進行中，請稍候");
-    return { skipped: true };
-  }
-  running.add(key);
-  try {
-    return await fn();
-  } finally {
-    running.delete(key);
-  }
-}
+// runOnce 已移到 js/utils.js（計數器也要用）。這裡 re-export 保持相容。
+export { runOnce } from "../utils.js";
 
 /**
  * 把一份工作切成小塊、每塊之間把主執行緒讓給瀏覽器，避免長時間卡住畫面。

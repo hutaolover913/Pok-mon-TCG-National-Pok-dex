@@ -1,4 +1,6 @@
 import { getAllSpecies, getCardsForSpecies } from "../data.js";
+import { saveView, readView, clearView } from "../viewState.js";
+import { requestScrollRestore } from "../router.js";
 import { buildSnapshot, computeSpeciesStatus } from "../state.js";
 import { getAllCategories } from "../db.js";
 import { renderPokemonTile } from "../components/pokemonTile.js";
@@ -49,7 +51,17 @@ export async function renderHome() {
 
   renderFilterPanel(categories);
   renderStats(species, categories, snapshot);
-  resetAndRenderGrid(species, categories, snapshot);
+  // 從寶可夢詳情返回時，把載到第幾頁與捲動位置一起還原。
+  // 第一次進來 saved 是 null，走的就是原本的 resetAndRenderGrid，行為不變。
+  const saved = readView("/");
+  if (saved && saved.pages > 1) {
+    restoreGrid(species, categories, snapshot, saved.pages);
+  } else {
+    // 注意 resetAndRenderGrid() 會呼叫 clearView("/")，所以 saved 必須先讀起來，
+    // 而且捲動位置要在這之後才還原 —— 只載了一頁也一樣要回到原本的位置。
+    resetAndRenderGrid(species, categories, snapshot);
+  }
+  if (saved && saved.scrollY) requestScrollRestore(saved.scrollY);
 
   document.getElementById("search-input").addEventListener(
     "input",
@@ -171,11 +183,31 @@ function matchesFilters(s, status) {
 }
 
 function resetAndRenderGrid(species, categories, snapshot) {
+  // 篩選條件變了，記下來的捲動位置與頁數就對不上了，直接丟掉
+  clearView("/");
   state.page = 1;
   const grid = document.getElementById("poke-grid");
   grid.innerHTML = "";
   renderStats(species, categories, snapshot);
   renderNextPage(species, categories, snapshot);
+  setupInfiniteScroll(species, categories, snapshot);
+}
+
+/** 一口氣補回先前已經載入的頁數，避免使用者返回後要重新往下滑。 */
+function restoreGrid(species, categories, snapshot, pages) {
+  state.page = 1;
+  const grid = document.getElementById("poke-grid");
+  grid.innerHTML = "";
+  renderStats(species, categories, snapshot);
+  const filtered = getFilteredList(species, snapshot);
+  const take = Math.min(pages * PAGE_SIZE, filtered.length);
+  // 一次插入，不要跑 pages 次 insertAdjacentHTML
+  grid.insertAdjacentHTML("beforeend",
+    filtered.slice(0, take).map(({ s, status }) => renderPokemonTile(s, status, categories)).join(""));
+  state.page = Math.ceil(take / PAGE_SIZE) + 1;
+  document.getElementById("grid-empty").classList.toggle("hidden", filtered.length > 0);
+  const sentinel = document.getElementById("load-sentinel");
+  sentinel.style.display = take >= filtered.length ? "none" : "block";
   setupInfiniteScroll(species, categories, snapshot);
 }
 
@@ -195,6 +227,7 @@ function renderNextPage(species, categories, snapshot) {
   const grid = document.getElementById("poke-grid");
   grid.insertAdjacentHTML("beforeend", pageItems.map(({ s, status }) => renderPokemonTile(s, status, categories)).join(""));
   state.page++;
+  saveView("/", { pages: state.page - 1 });
 
   const sentinel = document.getElementById("load-sentinel");
   sentinel.style.display = start + PAGE_SIZE >= filtered.length ? "none" : "block";

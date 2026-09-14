@@ -9,7 +9,7 @@ import {
   getAllCustomImageIds,
   speciesImageKey
 } from "../db.js";
-import { escapeHtml, padDex, imgFallbackAttr, showToast, formatDate, PLACEHOLDER_IMAGE } from "../utils.js";
+import { escapeHtml, padDex, imgFallbackAttr, showToast, formatDate, runOnce, PLACEHOLDER_IMAGE } from "../utils.js";
 import { renderCategoryPicker, bindCategoryPickers } from "../components/categoryPicker.js";
 import { renderFieldInfo, bindFieldEditors } from "../components/fieldEditor.js";
 import { renderCategoryBadge } from "../components/badges.js";
@@ -358,39 +358,62 @@ function bindCardRowEvents(speciesId, cards) {
       });
     }
 
-    row.querySelector('[data-action="dec"]').addEventListener("click", async () => {
-      const current = parseInt(countValueEl.textContent, 10);
-      const next = Math.max(0, current - 1);
-      await persistCount(speciesId, card, next, noteInput.value);
-      countValueEl.textContent = next;
-      row.classList.toggle("owned", next > 0);
-      refreshHeaderOnly(speciesId);
-      if (current > 0 && next === 0) {
-        showToast("已將這張卡片的收藏張數歸零", {
-          actionLabel: "復原",
-          onAction: async () => {
-            await persistCount(speciesId, card, current, noteInput.value);
-            draw(speciesId);
-          }
-        });
-      }
-    });
-    row.querySelector('[data-action="inc"]').addEventListener("click", async () => {
-      const current = parseInt(countValueEl.textContent, 10);
-      const next = current + 1;
-      await persistCount(speciesId, card, next, noteInput.value);
-      countValueEl.textContent = next;
-      row.classList.add("owned");
-      refreshHeaderOnly(speciesId);
-    });
+    // 計數器：先更新畫面再寫入，失敗就還原。
+    //
+    // 原本是先 await 寫入才動畫面，手機上按下去會有明顯延遲。改成樂觀更新之後
+    // 要自己負責回滾 —— 寫入失敗時把數字與樣式還原，並且明確告訴使用者。
+    //
+    // runOnce 用卡片 ID 當 key，同一張卡連點時第二次會被擋掉：兩次寫入同時
+    // 進行的話，後一次讀到的是前一次寫入前的數字，按兩下只會加到一。
+    const step = (delta) => async () => {
+      await runOnce("own:" + card.id, async () => {
+        const current = parseInt(countValueEl.textContent, 10);
+        const next = Math.max(0, current + delta);
+        if (next === current) return;
+
+        const wasOwned = row.classList.contains("owned");
+        countValueEl.textContent = next;
+        row.classList.toggle("owned", next > 0);
+
+        try {
+          await persistCount(speciesId, card, next, noteInput.value);
+        } catch (err) {
+          countValueEl.textContent = current;
+          row.classList.toggle("owned", wasOwned);
+          showToast("收藏沒有存起來，已還原：" + (err && err.message ? err.message : err),
+            { duration: 12000 });
+          return;
+        }
+
+        refreshHeaderOnly(speciesId);
+        if (current > 0 && next === 0) {
+          showToast("已將這張卡片的收藏張數歸零", {
+            actionLabel: "復原",
+            onAction: async () => {
+              await persistCount(speciesId, card, current, noteInput.value);
+              draw(speciesId);
+            }
+          });
+        }
+      });
+    };
+    row.querySelector('[data-action="dec"]').addEventListener("click", step(-1));
+    row.querySelector('[data-action="inc"]').addEventListener("click", step(1));
     noteToggle.addEventListener("click", () => {
       notePanel.classList.toggle("hidden");
     });
     row.querySelector('[data-action="save-note"]').addEventListener("click", async () => {
-      const current = parseInt(countValueEl.textContent, 10);
-      await persistCount(speciesId, card, current, noteInput.value);
-      noteToggle.textContent = noteInput.value ? "備註✎" : "加備註";
-      showToast("備註已儲存");
+      await runOnce("note:" + card.id, async () => {
+        const current = parseInt(countValueEl.textContent, 10);
+        try {
+          await persistCount(speciesId, card, current, noteInput.value);
+        } catch (err) {
+          showToast("備註沒有存起來：" + (err && err.message ? err.message : err), { duration: 12000 });
+          return;
+        }
+        noteToggle.textContent = noteInput.value ? "備註✎" : "加備註";
+        showToast("備註已儲存");
+      });
     });
   });
 }

@@ -6,6 +6,8 @@
 // 效能：系列與卡包的索引由 js/seriesCatalog.js 建一次（Map），這一頁只在
 // 索引上查表，不會每次點選都掃全部 15,846 張卡。
 import { getAllCards, getSpecies, getAllSetsMeta } from "../data.js";
+import { saveView, readView } from "../viewState.js";
+import { requestScrollRestore } from "../router.js";
 import { isAppMode } from "../appMode.js";
 import { label, markLabelForMode } from "../appLabels.js";
 import {
@@ -96,6 +98,13 @@ export async function renderSeriesDetail(params) {
       : getSetsOfSeries(seriesId).some((s) => s.setKey === f.setKey);
     if (!valid) f.setKey = "all";
     f.limit = PAGE_SIZE;
+  }
+
+  // 回到同一個系列時，把先前載到的筆數與捲動位置還原
+  const savedView = readView(`/sets/${seriesId}`);
+  if (savedView) {
+    if (savedView.limit) f.limit = savedView.limit;
+    if (savedView.scrollY) requestScrollRestore(savedView.scrollY);
   }
 
   const disp = seriesId === "all"
@@ -231,6 +240,7 @@ function bindFilters() {
 
   document.getElementById("sb-more").addEventListener("click", () => {
     f.limit += PAGE_SIZE;
+    saveView(`/sets/${f.seriesId}`, { limit: f.limit });
     draw();
   });
 

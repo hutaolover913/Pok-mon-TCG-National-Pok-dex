@@ -1,4 +1,6 @@
 import { getAllSpecies, getAllCards, getCard, getSpecies, getAllSetsMeta } from "../data.js";
+import { saveView, readView } from "../viewState.js";
+import { requestScrollRestore } from "../router.js";
 import { buildSnapshot, computeSpeciesStatus } from "../state.js";
 import {
   getAllCategories,
@@ -55,6 +57,13 @@ export async function renderCollection() {
   const perCategoryLit = {};
   for (const cat of categories) {
     perCategoryLit[cat.id] = statuses.filter((s) => s.categories[cat.id] && s.categories[cat.id].status === "owned").length;
+  }
+
+  // 從卡片／寶可夢詳情返回時，把載到的筆數與捲動位置還原
+  const savedView = readView("/collection");
+  if (savedView) {
+    if (savedView.limit) cardFilter.limit = savedView.limit;
+    if (savedView.scrollY) requestScrollRestore(savedView.scrollY);
   }
 
   const undoInfo = await getLastClearSnapshotInfo();
@@ -261,6 +270,7 @@ function bindCollectionFilters() {
 
   document.getElementById("col-more").addEventListener("click", () => {
     cardFilter.limit += PAGE_SIZE;
+    saveView("/collection", { limit: cardFilter.limit });
     drawOwnedCards();
   });
 }

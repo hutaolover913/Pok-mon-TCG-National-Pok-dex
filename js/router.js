@@ -78,6 +78,49 @@ export function currentRoutePath() {
   return currentPath;
 }
 
+/**
+ * 套用捲動位置。
+ *
+ * 看起來該是一行 window.scrollTo(0, y) 就好，實際上不行。實測到的順序是：
+ *
+ *   1. 路由 handler 回來時，文件高度還是**上一頁**留下的（詳情頁很長）
+ *   2. scrollTo(0, 3000) 於是成功了
+ *   3. 清單接著非同步重畫，grid.innerHTML = "" 讓高度瞬間塌掉
+ *   4. 瀏覽器把捲動位置夾回 0
+ *   5. 圖片是 loading="lazy" 又沒有指定尺寸，高度要等圖片進來才撐得回去
+ *
+ * 所以要在一小段時間內持續確認，被夾掉就再捲回去。
+ *
+ * 判斷「使用者自己捲動了」不能看位置變化 —— 第 4 步的夾回跟使用者捲動長得
+ * 一模一樣，會誤判成使用者操作而提早放棄。改成直接聽實際的輸入事件。
+ */
+function applyScroll(target) {
+  const y = target === null ? 0 : target;
+  window.scrollTo(0, y);
+  if (y === 0) return;
+
+  let userMoved = false;
+  const onUserInput = () => {
+    userMoved = true;
+  };
+  const events = ["wheel", "touchstart", "keydown", "pointerdown"];
+  for (const e of events) window.addEventListener(e, onUserInput, { passive: true });
+  const stop = () => {
+    for (const e of events) window.removeEventListener(e, onUserInput);
+  };
+
+  const deadline = Date.now() + 1500;
+  const tick = () => {
+    if (userMoved || Date.now() > deadline) {
+      stop();
+      return;
+    }
+    if (Math.abs(window.scrollY - y) >= 4) window.scrollTo(0, y);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 async function handleRoute() {
   const hash = window.location.hash.slice(1) || "/";
   const [path, queryStr] = hash.split("?");
@@ -95,7 +138,7 @@ async function handleRoute() {
       const params = {};
       r.paramNames.forEach((name, i) => (params[name] = decodeURIComponent(m[i + 1])));
       await r.handler(params, query);
-      window.scrollTo(0, pendingScrollY === null ? 0 : pendingScrollY);
+      applyScroll(pendingScrollY);
       updateActiveNav(path);
       currentPath = path;
       return;
