@@ -1078,3 +1078,46 @@ img.img-fallback { opacity: 0.6; }
 .set-list-date.undated { color: var(--warn); }
 .set-list-name { font-size: 12px; font-weight: 600; }
 .set-list-meta { font-size: 10px; color: var(--text-dim); }
+
+/* ---------------------------------------------------------------- 收藏進度
+ *
+ * 只有 App 版的「收藏進度」分頁會用到（js/pages/progress.js）。
+ * 網頁版沒有這條路由，所以這幾條規則對它是惰性的。
+ */
+.progress-overall {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 16px;
+  margin-bottom: 16px;
+}
+
+.progress-pct {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--accent-2);
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-bar.mini {
+  height: 6px;
+  margin-top: 8px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-2), var(--success));
+  /* 0% 時給一點寬度，讓使用者看得出這裡是一條進度條而不是壞掉 */
+  min-width: 2px;
+  transition: width 0.3s ease;
+}
