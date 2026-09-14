@@ -5,49 +5,93 @@
 
 ---
 
-## 現在可以做什麼（不需要安裝任何東西）
+## 現在就能在手機上試用（5 分鐘，零安裝）
 
 ```bash
 python android-app/build_thumbs.py   # 只需跑一次，產生內建卡圖（約 10 分鐘）
 python android-app/build_www.py      # 組裝 www/（約 30 秒）
-python android-app/preview.py        # 在瀏覽器預覽，開 http://localhost:8899
+python android-app/preview.py        # 啟動預覽伺服器
 ```
 
-預覽出來的介面與鎖定行為，和裝進手機之後完全一樣。
+`preview.py` 會印出兩個網址：電腦用 `http://localhost:8899`，**手機用內網網址**
+（例如 `http://192.168.0.102:8899`）。手機連同一個 Wi-Fi 就能開。
+
+第一次執行時 Windows 防火牆會跳詢問 —— **勾「私人網路」按允許**。
+
+手機連不上時依序檢查：手機是不是用了行動網路而不是同一個 Wi-Fi、防火牆有沒有允許、
+電腦上的 VPN 有沒有開著（開著會擋掉）。
+
+**這樣看得到什麼**：完整介面、六個分頁、分類鎖定、收藏加減、改過的用詞 ——
+與裝進手機後一模一樣。
+**看不到什麼**：桌面圖示、硬體返回鍵整合、啟動畫面、離線可用。
+
+> 這是試用不是成品：電腦關掉手機就開不了，而且收藏存在手機瀏覽器裡，
+> 之後裝了真的 App 不會自動搬過去。
 
 **為什麼是 8899 而不是 8811**：瀏覽器的 IndexedDB 依網址（含連接埠）分開存放。
 用不同的埠預覽，怎麼點收藏、怎麼測清除，都碰不到你平常在 8811 用的真實收藏。
 
 ---
 
-## 要真的做出 APK，你需要先安裝
+## 要做出 APK，需要先安裝
 
-| 安裝項目 | 大小 | 建議位置 |
-|---|---|---|
-| Node.js 20 LTS | 約 100 MB | 預設 |
-| Android Studio | 約 4 GB | C: |
-| Android SDK（Platform 35 + Build-Tools + Platform-Tools） | 約 8 GB | **`D:\Android\Sdk`** |
+以下版本需求是查 Capacitor 官方文件確認的，不是憑印象：
 
-⚠️ **不要沿用 `C:\Program Files (x86)\Android\android-sdk`。** 它缺 platform-tools
-與 build-tools，而且位在 Program Files 底下，sdkmanager 與 Gradle 需要提權才能
-寫入，會用很難懂的方式失敗。在 Android Studio 裡指定一個全新的 `D:\Android\Sdk`。
+| 安裝項目 | 版本要求 | 大小 | 裝在哪 |
+|---|---|---|---|
+| Node.js | **22 或更新**（LTS） | 約 100 MB | 預設（C:） |
+| Android Studio | **2025.2.1 或更新** | 約 4 GB | C: |
+| Android SDK | Platform API 24+（最新穩定版是 API 36） | 約 8 GB | **`D:\Android\Sdk`** |
 
-建議也設 `GRADLE_USER_HOME=D:\gradle`，把 Gradle 的快取放到 D:（會長到 3–5 GB）。
+**不要另外裝 JDK。** 官方文件明講 Android Studio 會自動安裝正確版本的 JDK，
+自己另外裝反而容易裝到不相容的版本。
 
-Android Studio 自帶 JDK，所以不需要另外處理 PyCharm 附的那兩個。
+### 安裝時要注意的兩個地方
 
-裝完之後：
+安裝 Android Studio 時：
+
+1. Install Type 選 **Standard**
+2. SDK Components Setup 的 **Android SDK Location 改成 `D:\Android\Sdk`**
+
+⚠️ **SDK 一定要放 D:。** C: 空間有限，SDK 加上建置快取會吃掉 10 GB 以上。
+
+⚠️ **不要沿用 `C:\Program Files (x86)\Android\android-sdk`。** 那裡只有半套舊 SDK
+（缺 `platform-tools` 與 `build-tools`），而且位在 Program Files 底下，
+`sdkmanager` 與 Gradle 需要提權才能寫入，失敗訊息很難懂。
+
+再把 Gradle 快取也移到 D:（只需做一次，PowerShell 執行後重開終端機）：
+
+```powershell
+[Environment]::SetEnvironmentVariable('GRADLE_USER_HOME', 'D:\gradle', 'User')
+```
+
+### 裝完之後
 
 ```bash
 cd android-app
 npm install
 python build_www.py
-npx cap add android
+npx cap add android      # 只做一次
 npx cap sync
-npx cap run android          # 接上手機或開模擬器
+npx cap open android     # 開 Android Studio，第一次會跑 Gradle Sync（5-15 分鐘）
 ```
 
+在 Android Studio：**Build → Build Bundle(s) / APK(s) → Build APK(s)**
+
 之後日常只要 `python build_www.py && npx cap sync`，改網頁程式碼不必碰 npm。
+
+### 裝到手機
+
+手機先開啟開發人員選項（設定 → 關於手機 → 連點「版本號碼」七次）與 **USB 偵錯**，
+接上 USB 線後：
+
+```bash
+npx cap run android
+```
+
+沒有線的話，把 `app-debug.apk` 傳到手機點開安裝（要允許「安裝未知來源的應用程式」）。
+
+接著電腦 Chrome 開 `chrome://inspect` 就能看到 App 的 console，跟 debug 網頁一樣。
 
 ### 建置產出
 
@@ -187,7 +231,7 @@ App 的備份**只含收藏**（`manualFlags` + `cardOwnership`），不含分�
 |---|---|
 | `build_thumbs.py` | 產生 4,064 張內建卡圖（跑一次） |
 | `build_www.py` | 組裝 `www/`，並自我檢查鎖定有沒有生效 |
-| `preview.py` | 桌機預覽（8899 埠，程式碼不快取） |
+| `preview.py` | 預覽伺服器（8899 埠，綁區域網路讓手機也能連，程式碼不快取） |
 | `capacitor.config.json` | appId `tw.shinfu.ptcgdex`、名稱「PTCG圖鑑」 |
 | `www/`、`thumbs/`、`android/` | 產生物，不進 git |
 
