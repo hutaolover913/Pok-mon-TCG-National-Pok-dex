@@ -17,6 +17,7 @@
 // 3. 工具列只更新數字，不要整塊 innerHTML 重寫（重寫會把按鈕元素換掉，
 //    又得重綁監聽器，繞回問題 1）。
 import { escapeHtml, showToast } from "../utils.js";
+import { isAppMode } from "../appMode.js";
 
 export function createSelection() {
   const set = new Set();
@@ -60,6 +61,8 @@ export function renderSelectCheckbox(cardId, checked) {
  * 之後數字的變動走 refreshBulkBar()，不重建元素。
  */
 export function renderBulkBar({ active, selected, pageCount, totalCount, actionLabel, actionId }) {
+  // App 版不提供批量編輯：這一處同時關掉「卡片分類」與「我的收藏」兩個入口
+  if (isAppMode()) return "";
   if (!active) {
     return `<div class="bulk-bar">
       <button class="text-btn" data-action="bulk-on">☑ 批量編輯</button>

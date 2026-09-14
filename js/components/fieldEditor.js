@@ -9,6 +9,8 @@ import { getCategoryDef } from "../cardCategories.js";
 import { setFieldOverride, clearFieldOverride } from "../db.js";
 import { refreshFieldOverrideForCard } from "../data.js";
 import { escapeHtml, showToast } from "../utils.js";
+import { isAppMode } from "../appMode.js";
+import { label, markLabelForMode } from "../appLabels.js";
 
 const LANG_LABEL = { en: "英文版（美版）", ja: "日文版", "zh-Hant": "繁體中文版", "zh-Hans": "簡體中文版" };
 
@@ -27,23 +29,24 @@ export function renderFieldInfo(card) {
   <div class="field-info" data-field-card="${escapeHtml(card.id)}">
     <div class="field-row"><span class="field-key">大系列</span>
       <span>${escapeHtml(disp.zh)}<span class="field-sub">（${escapeHtml(disp.en || "")}${
-        card.seriesId ? `・${escapeHtml(card.seriesId)}` : ""}）</span>${manualSeries ? `<span class="manual-tag">手動指定</span>` : ""}</span></div>
+        card.seriesId ? `・${escapeHtml(card.seriesId)}` : ""}）</span>${manualSeries && label("手動指定") ? `<span class="manual-tag">${label("手動指定")}</span>` : ""}</span></div>
     <div class="field-row"><span class="field-key">卡包</span>
       <span>${escapeHtml(card.setName || "")}<span class="field-sub">（${escapeHtml(card.setId || "")}）</span>${
-        manualSet ? `<span class="manual-tag">手動指定</span>` : ""}</span></div>
+        manualSet && label("手動指定") ? `<span class="manual-tag">${label("手動指定")}</span>` : ""}</span></div>
     <div class="field-row"><span class="field-key">語言／地區</span><span>${escapeHtml(LANG_LABEL[card.language] || card.language)}</span></div>
     <div class="field-row"><span class="field-key">完整卡號</span><span>${escapeHtml(String(number))}</span></div>
     <div class="field-row"><span class="field-key">規則標記</span>
-      <span class="mark-tag mark-${mk.status}">${escapeHtml(markLabel(mk))}</span></div>
+      <span class="mark-tag mark-${mk.status}">${escapeHtml(markLabelForMode(markLabel(mk)))}</span></div>
     <div class="field-row"><span class="field-key">稀有度分類</span>
       <span>${cats.map((c) => `<span class="mech-tag" style="border-color:${c.color};color:${c.color}">${escapeHtml(c.label)}</span>`).join(" ") || "—"}</span></div>
-    <div class="field-row">
+    ${isAppMode() ? "" : `<div class="field-row">
       <button class="text-btn" data-action="edit-fields">${needsEdit ? "修正待確認欄位…" : "修改系列／卡包／標記…"}</button>
-    </div>
+    </div>`}
   </div>`;
 }
 
 export function bindFieldEditors(root, onChanged) {
+  if (isAppMode()) return; // App 版沒有這些按鈕，也不允許寫入欄位覆寫
   root.querySelectorAll('[data-action="edit-fields"]').forEach((btn) => {
     btn.addEventListener("click", () => {
       const host = btn.closest("[data-field-card]");

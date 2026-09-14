@@ -13,6 +13,7 @@
 // 英文的 sv 與日文的 SV 在瀏覽時歸在同一個「大系列」底下方便找，但每個卡包
 // 仍然保留自己的語言、卡包代碼與原始 seriesId，不會被合併成同一個卡包。
 import { getAllCards, getAllSetsMeta } from "./data.js";
+import { label as appLabel, markLabelForMode } from "./appLabels.js";
 
 // 大系列的正規化對照。key 是 `${language}:${seriesId}`，值是正規化後的大系列。
 // 這份對照是掃過 data/sets.json 裡實際存在的 6 組 (語言, seriesId) 後列出來的，
@@ -100,9 +101,13 @@ export function getRegulationMark(card) {
 }
 
 export function markLabel(info) {
-  if (info.status === MARK_STATUS.MARKED) return info.mark + (info.manual ? "（手動指定）" : "");
+  if (info.status === MARK_STATUS.MARKED) {
+    // App 版不顯示「（手動指定）」——那是整理資料時的註記
+    const manualNote = appLabel("手動指定") ? "（手動指定）" : "";
+    return info.mark + (info.manual ? manualNote : "");
+  }
   if (info.status === MARK_STATUS.NONE) return "無標記";
-  return "待確認";
+  return markLabelForMode("待確認");
 }
 
 // ---------------------------------------------------------------- 卡包排序
@@ -132,7 +137,7 @@ export function hasValidReleaseDate(meta) {
 /** YYYY/MM/DD；沒有有效日期時回傳「發售日期待確認」。 */
 export function formatReleaseDate(meta) {
   const t = setReleaseTime(meta);
-  if (t === null) return "發售日期待確認";
+  if (t === null) return appLabel("發售日期待確認");
   const d = new Date(t);
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
@@ -261,7 +266,9 @@ export function getCardsOfSet(setKey) {
 }
 
 export function getSeriesDisplay(id) {
-  return SERIES_DISPLAY[id] || SERIES_DISPLAY.UNKNOWN;
+  const d = SERIES_DISPLAY[id] || SERIES_DISPLAY.UNKNOWN;
+  const shown = appLabel(d.zh);
+  return shown === d.zh ? d : { ...d, zh: shown };
 }
 
 /** 這張卡目前歸在哪個大系列（含手動指定）。 */

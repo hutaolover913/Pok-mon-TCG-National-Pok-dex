@@ -2,6 +2,8 @@
 // 使用者設定）都保存在這裡，卡圖鑑資料（species.json / cards.json）則是
 // 隨 App 附帶的靜態資料，不寫回資料庫，因此「更新卡表」不會動到收藏紀錄。
 import { DEFAULT_CATEGORIES, BUILTIN_RARITY_MAPPING_VERSION } from "./categories.js";
+import { isAppMode } from "./appMode.js";
+import { label as appLabel } from "./appLabels.js";
 
 const DB_NAME = "pokecard-dex";
 const DB_VERSION = 4;
@@ -52,7 +54,71 @@ function openDB() {
   return dbPromise;
 }
 
+// ============================================================================
+// App 版的「唯讀策展資料」守衛
+//
+// 這是三層鎖定的第三層，也是唯一擋得住「直接呼叫模組 API」的一層。
+// 前兩層是：管理用的檔案不進 APK（build_www.py）、管理路由不註冊（routes.js）。
+//
+// -- 為什麼守在 tx() ---------------------------------------------------------
+// 全專案只有下面那一行 db.transaction() —— 19 個寫入點通通走 tx()。
+// 守在這裡的意思是：不需要一個一個去包裝 setCategoryOverride、saveCategory…，
+// 連「以後新增的寫入函式」都會自動被擋，不會有人忘記加防護。
+//
+// 而且 throw 發生在 db.transaction() 被呼叫**之前**，所以連交易都沒開，
+// 不可能產生寫一半的資料。
+//
+// -- 誠實說明它擋不住什麼 ----------------------------------------------------
+// 這不是沙箱。任何人在自己的手機上用 DevTools 直接
+//     indexedDB.open("pokecard-dex")
+// 仍然可以繞過去。所有 web 技術做的 App 都有這個限制，做不到就不該宣稱做到。
+// 由於資料是裝置本機、單一使用者、沒有後端，這個程度是相稱的。
+// 它要擋的是：App 自身的所有程式路徑、被換掉的 stub、以及從 console 呼叫
+// js/db.js 匯出的函式。
+// ============================================================================
+
+/** 被拒絕時丟出來的錯誤。有 code 可以判斷，訊息是給使用者看的。 */
+export class CurationPermissionError extends Error {
+  constructor(stores) {
+    super("App 版是「收藏專用」模式，不能修改卡片分類或卡片主資料。"
+      + "你的收藏紀錄沒有被更動。這類整理工作請在電腦版圖鑑進行。"
+      + "（被拒絕的資料表：" + stores.join("、") + "）");
+    this.name = "CurationPermissionError";
+    this.code = "E_CURATION_READONLY";
+    this.stores = stores;
+  }
+}
+
+// 屬於「策展資料」的四個 store：分類定義、逐張分類覆寫、欄位覆寫、自訂圖片。
+// cardOwnership（收藏張數）、manualFlags（點亮）、meta（設定）不在內 ——
+// 那三個是使用者自己的收藏資料，App 版照常可以寫。
+const CURATION_STORES = new Set([
+  "categories",
+  "cardCategoryOverrides",
+  "cardFieldOverrides",
+  "customImages"
+]);
+
+// 開機期間有兩個「系統自己」的寫入必須放行：
+//   ensureSeeded()   —— 把內建分類種進資料庫，沒有它 App 開不起來
+//   migrateCardIds() —— 卡片 ID 改版時搬移既有紀錄
+// 這個計數器只在同步區段內大於 0，外部程式碼拿不到它，也沒有匯出。
+let bootstrapDepth = 0;
+
+function withBootstrap(fn) {
+  bootstrapDepth += 1;
+  try {
+    return fn();
+  } finally {
+    bootstrapDepth -= 1;
+  }
+}
+
 function tx(db, storeNames, mode = "readonly") {
+  if (mode === "readwrite" && isAppMode() && bootstrapDepth === 0) {
+    const blocked = storeNames.filter((name) => CURATION_STORES.has(name));
+    if (blocked.length > 0) throw new CurationPermissionError(blocked);
+  }
   return db.transaction(storeNames, mode);
 }
 
@@ -110,7 +176,8 @@ export async function ensureSeeded() {
   const needsRemap = storedVersion !== BUILTIN_RARITY_MAPPING_VERSION;
 
   const db = await openDB();
-  const t = tx(db, ["categories"], "readwrite");
+  // 開機種入內建分類：系統自己的 bootstrap，不是使用者操作，App 版也要放行
+  const t = withBootstrap(() => tx(db, ["categories"], "readwrite"));
   const store = t.objectStore("categories");
 
   for (const def of DEFAULT_CATEGORIES) {
@@ -161,6 +228,15 @@ export async function ensureSeeded() {
 
 // ---------- Categories ----------
 export async function getAllCategories() {
+  const list = await getAllCategoriesRaw();
+  // App 版換掉「待確認」這類整理用語。只動顯示文字，id 與對照規則不變。
+  return list.map((c) => {
+    const shown = appLabel(c.label);
+    return shown === c.label ? c : { ...c, label: shown };
+  });
+}
+
+async function getAllCategoriesRaw() {
   const list = await getAll("categories");
   return list.sort((a, b) => a.order - b.order);
 }
@@ -693,7 +769,8 @@ export async function migrateCardIds(migrationMap, migrationVersion) {
   });
 
   if (relevantOverrides.length > 0) {
-    const t2 = tx(db, ["cardCategoryOverrides"], "readwrite");
+    // 卡片 ID 改版時搬移既有紀錄：同樣是系統 bootstrap，不是使用者改分類
+    const t2 = withBootstrap(() => tx(db, ["cardCategoryOverrides"], "readwrite"));
     const store2 = t2.objectStore("cardCategoryOverrides");
     for (const rec of relevantOverrides) {
       const newCardId = migrationMap[rec.cardId];
@@ -1003,6 +1080,99 @@ export async function importAllData(payload, mode) {
     await importFieldOverrides(payload.fieldOverrides, mode);
   }
   invalidateCategoryCache();
+}
+
+// ---------------------------------------------------- 只含收藏的備份（App 版用）
+//
+// exportAllData() 會把分類定義、逐張分類覆寫、欄位覆寫與自訂圖片一起打包。
+// 那是電腦版整理者要的完整快照，但 App 版不該碰那些資料，備份檔裡也不該有
+// —— 否則使用者在手機上匯出、又在別台電腦匯入，就可能把整理好的分類蓋掉。
+//
+// 所以 App 版走這一組，只處理 manualFlags 與 cardOwnership。
+//
+// 注意 importCollectionOnly() 開交易時傳的 store 清單裡**沒有任何策展 store**，
+// 所以它是「天然通過」tx() 守衛的，不是靠例外放行。
+// 哪天有人不小心把 "categories" 加進那個清單，守衛就會擋下來 —— 這正是我們要的。
+
+const COLLECTION_EXPORT_KIND = "collection-only";
+
+export async function exportCollectionOnly() {
+  const [manualFlags, cardOwnership] = await Promise.all([
+    getAllManualFlags(),
+    getAllOwnership()
+  ]);
+  return {
+    formatVersion: EXPORT_FORMAT_VERSION,
+    appId: "pokecard-ptcg-dex",
+    kind: COLLECTION_EXPORT_KIND,
+    exportedAt: new Date().toISOString(),
+    manualFlags,
+    cardOwnership
+  };
+}
+
+/**
+ * 匯入收藏資料。
+ *
+ * 可以吃電腦版的完整備份 —— 裡面的 categories／categoryOverrides／
+ * fieldOverrides／customImages 會被**直接忽略**，不讀也不寫。
+ *
+ * @param {object} payload
+ * @param {"merge"|"overwrite"} mode
+ *   merge     張數取較大值（與 importAllData 同一套規則）
+ *   overwrite 清空後整份換成備份檔的內容
+ */
+export async function importCollectionOnly(payload, mode = "merge") {
+  if (!payload || typeof payload !== "object") throw new Error("備份檔格式不正確");
+  const flags = Array.isArray(payload.manualFlags) ? payload.manualFlags : null;
+  const owns = Array.isArray(payload.cardOwnership) ? payload.cardOwnership : null;
+  if (!flags || !owns) throw new Error("備份檔裡找不到收藏資料（manualFlags／cardOwnership）");
+  if (payload.formatVersion !== 1 && payload.formatVersion !== 2) {
+    throw new Error("不支援的備份格式版本：" + payload.formatVersion);
+  }
+
+  let finalFlags = flags;
+  let finalOwns = owns;
+
+  if (mode !== "overwrite") {
+    const [curFlags, curOwn] = await Promise.all([getAllManualFlags(), getAllOwnership()]);
+    const flagMap = new Map(curFlags.map((f) => [f.id, f]));
+    for (const f of flags) {
+      const existing = flagMap.get(f.id);
+      if (!existing || (f.updatedAt || 0) >= (existing.updatedAt || 0)) flagMap.set(f.id, f);
+    }
+    const ownMap = new Map(curOwn.map((o) => [o.cardId, o]));
+    for (const o of owns) {
+      const existing = ownMap.get(o.cardId);
+      if (!existing) {
+        ownMap.set(o.cardId, o);
+      } else {
+        ownMap.set(o.cardId, {
+          ...existing,
+          count: Math.max(existing.count || 0, o.count || 0),
+          note: o.note && o.note.length > (existing.note || "").length ? o.note : existing.note,
+          updatedAt: Math.max(existing.updatedAt || 0, o.updatedAt || 0)
+        });
+      }
+    }
+    finalFlags = Array.from(flagMap.values());
+    finalOwns = Array.from(ownMap.values());
+  }
+
+  const db = await openDB();
+  const t = tx(db, ["manualFlags", "cardOwnership"], "readwrite");
+  const fs = t.objectStore("manualFlags");
+  const os = t.objectStore("cardOwnership");
+  fs.clear();
+  os.clear();
+  for (const f of finalFlags) fs.put(f);
+  for (const o of finalOwns) os.put(o);
+  await new Promise((resolve, reject) => {
+    t.oncomplete = resolve;
+    t.onerror = () => reject(t.error);
+  });
+
+  return { manualFlags: finalFlags.length, cardOwnership: finalOwns.length, mode };
 }
 
 export async function clearAllCollectionData() {

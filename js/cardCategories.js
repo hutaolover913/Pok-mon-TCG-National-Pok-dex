@@ -1,3 +1,5 @@
+import { label } from "./appLabels.js";
+
 // ============================================================================
 // 卡片分類規則（集中管理）
 //
@@ -311,7 +313,13 @@ export function resolveRarityCategoryId(card, overrideCategoryId) {
 }
 
 export function getCategoryDef(id) {
-  return CARD_CATEGORY_DEFS.find((c) => c.id === id) || null;
+  const def = CARD_CATEGORY_DEFS.find((c) => c.id === id) || null;
+  if (!def) return null;
+  // App 版把「待確認」這類整理用語換成收藏者看得懂的說法。
+  // 只換顯示文字：id、涵蓋的卡片、資料庫內容全部不動。
+  // 網頁版的 label() 是原樣回傳，所以這裡對網頁版沒有任何影響。
+  const shown = label(def.label);
+  return shown === def.label ? def : { ...def, label: shown };
 }
 
 export const CONFIDENCE_LABEL = {

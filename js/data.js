@@ -6,6 +6,7 @@
 // 這裡載入時統一展開成 imageSmall / imageLarge / setName / seriesName /
 // printedTotal / releaseDate，其餘畫面程式碼可以直接當作卡片本身的欄位使用。
 import { getAllCategories, getAllCustomImageIds, getCustomImage, getAllCategoryOverrides, getAllFieldOverrides } from "./db.js";
+import { isAppMode } from "./appMode.js";
 import { classifyCard, rarityCategoryId, resolveCategoryIds, resolveRarityCategoryId } from "./cardCategories.js";
 
 let speciesList = null;
@@ -33,8 +34,15 @@ export async function loadStaticData() {
     fetch("data/species.json"),
     fetch("data/cards.json"),
     fetch("data/sets.json"),
-    fetch("data/image_local_map.json").catch(() => null),
-    fetch("data/image_candidates.json").catch(() => null),
+    // 本機圖片對照表。
+    //   網頁版 image_local_map.json —— 指向本機 images/ 的全部 15,846 張
+    //   App 版  app_image_map.json   —— 只有官方 CDN 沒有提供、內建進 App 的
+    //                                    那 4,064 張縮圖
+    // 兩者都抓不到就全部退回遠端網址，不會壞掉。
+    fetch(isAppMode() ? "data/app_image_map.json" : "data/image_local_map.json").catch(() => null),
+    // 候選卡圖只有電腦版的「換版本」功能會用，App 版整個不提供，
+    // 檔案也不會被複製進去 —— 所以乾脆不要發那個注定 404 的請求。
+    isAppMode() ? Promise.resolve(null) : fetch("data/image_candidates.json").catch(() => null),
     getAllCategories()
   ]);
   speciesList = await speciesRes.json();
@@ -86,7 +94,9 @@ export async function loadStaticData() {
     const localCardImage = localImageMap.cards && localImageMap.cards[card.id];
     card.remoteImageSmall = card.image ? `${card.image}/low.webp` : null;
     card.imageSmall = localCardImage || card.remoteImageSmall;
-    card.imageLarge = card.image ? `${card.image}/high.webp` : null;
+    // 大圖沒有本機版本，所以這裡一律是遠端。card.image 是 null 的那 4,064 張
+    // 本來會變成 null（詳情頁放大就成佔位圖），改成退回可用的小圖／內建縮圖。
+    card.imageLarge = card.image ? `${card.image}/high.webp` : (localCardImage || null);
     // categoryId：沿用使用者可在「設定」調整的對照表，圖鑑徽章用這個。
     // categoryIds：js/cardCategories.js 那份分語言、可複數的規則，卡片分類頁用。
     // 兩者的預設值同源（categories.js 由 cardCategories.js 推導），所以不會互相矛盾；

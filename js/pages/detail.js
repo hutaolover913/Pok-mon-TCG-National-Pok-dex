@@ -14,6 +14,8 @@ import { renderCategoryPicker, bindCategoryPickers } from "../components/categor
 import { renderFieldInfo, bindFieldEditors } from "../components/fieldEditor.js";
 import { renderCategoryBadge } from "../components/badges.js";
 import { promptUploadImage, removeCustomImage, acceptCandidateImage } from "../imageUpload.js";
+import { isAppMode } from "../appMode.js";
+import { label } from "../appLabels.js";
 
 let activeCategoryTab = "ALL";
 
@@ -55,10 +57,10 @@ async function draw(speciesId) {
     <section class="detail-hero">
       <div class="detail-hero-img-wrap">
         <img class="detail-hero-img ${status.speciesLit ? "" : "dim"}" src="${species.imageUrl}" alt="${escapeHtml(species.nameZh || species.nameEn)}" ${imgFallbackAttr(species.remoteImageUrl)} />
-        <div class="hero-img-actions">
+        ${isAppMode() ? "" : `<div class="hero-img-actions">
           <button class="text-btn" data-action="upload-species-image">${speciesHasCustomImage ? "更換圖片" : "上傳圖片"}</button>
           ${speciesHasCustomImage ? `<button class="text-btn danger-text" data-action="remove-species-image">移除自訂圖片</button>` : ""}
-        </div>
+        </div>`}
       </div>
       <div class="detail-hero-info">
         <div class="detail-dexnum">#${padDex(species.id)} · 第 ${species.generation} 世代${species.isLegendary ? " · 傳說" : ""}${species.isMythical ? " · 幻獸" : ""}</div>
@@ -156,8 +158,8 @@ function renderCardRow(card, category, ownership, hasCustomImage) {
   <div class="card-row ${owned ? "owned" : ""}" data-card-id="${card.id}">
     <div class="card-row-img-wrap">
       <img class="card-row-img" src="${imgSrc}" alt="${escapeHtml(card.name)}" loading="lazy" ${imgFallbackAttr(card.remoteImageSmall)} />
-      <button class="img-upload-btn" data-action="upload-card-image" title="${hasCustomImage ? "更換自訂圖片" : "上傳圖片"}">${hasCustomImage ? "✎" : "＋圖"}</button>
-      ${hasCustomImage ? `<button class="img-remove-btn" data-action="remove-card-image" title="移除自訂圖片">×</button>` : ""}
+      ${isAppMode() ? "" : `<button class="img-upload-btn" data-action="upload-card-image" title="${hasCustomImage ? "更換自訂圖片" : "上傳圖片"}">${hasCustomImage ? "✎" : "＋圖"}</button>`}
+      ${!isAppMode() && hasCustomImage ? `<button class="img-remove-btn" data-action="remove-card-image" title="移除自訂圖片">×</button>` : ""}
     </div>
     <div class="card-row-body">
       <div class="card-row-title">${escapeHtml(card.name)}</div>
@@ -167,7 +169,7 @@ function renderCardRow(card, category, ownership, hasCustomImage) {
         <span class="rarity-tag" title="原始稀有度（來自 TCGdex 資料庫）">${card.originalRarity ? escapeHtml(card.originalRarity) : "稀有度資料尚未提供"}</span>
         ${(card.tags || []).map((t) => `<span class="mech-tag">${escapeHtml(t)}</span>`).join("")}
         <span class="lang-tag">${escapeHtml(languageLabel(card.language))}</span>
-        ${card.isSample ? `<span class="sample-tag" title="示範用樣本資料">樣本資料</span>` : ""}
+        ${card.isSample && label("樣本資料") ? `<span class="sample-tag" title="示範用樣本資料">${label("樣本資料")}</span>` : ""}
       </div>
       <div class="card-row-release">
         ${card.releaseDate ? `發售日：${escapeHtml(formatDate(card.releaseDate))}` : ""}
@@ -212,12 +214,14 @@ function versionAlternatives(card, hasCustomImage) {
 }
 
 function renderVersionToggle(card, hasCustomImage) {
+  if (isAppMode()) return "";
   const alt = versionAlternatives(card, hasCustomImage);
   if (!alt) return "";
   return ` <button class="version-toggle-btn" data-action="toggle-versions" aria-expanded="false" title="這張卡在來源有其他印刷版本，可以換">換版本 ${alt.others.length}</button>`;
 }
 
 function renderCandidateBlock(card, hasCustomImage) {
+  if (isAppMode()) return "";
   const alt = versionAlternatives(card, hasCustomImage);
   if (!alt) return "";
   const { info, others, applied } = alt;
@@ -320,9 +324,13 @@ function bindCardRowEvents(speciesId, cards) {
     const notePanel = row.querySelector(".card-note-panel");
     const noteInput = row.querySelector(".card-note-input");
 
-    row.querySelector('[data-action="upload-card-image"]').addEventListener("click", () => {
-      promptUploadImage(card.id, () => draw(speciesId));
-    });
+    // App 模式沒有這顆按鈕，這裡必須 null-safe，不然每一列都會丟例外
+    const uploadImgBtn = row.querySelector('[data-action="upload-card-image"]');
+    if (uploadImgBtn) {
+      uploadImgBtn.addEventListener("click", () => {
+        promptUploadImage(card.id, () => draw(speciesId));
+      });
+    }
     const versionToggle = row.querySelector('[data-action="toggle-versions"]');
     if (versionToggle) {
       versionToggle.addEventListener("click", () => {

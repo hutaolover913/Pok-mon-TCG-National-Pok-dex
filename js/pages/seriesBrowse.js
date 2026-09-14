@@ -6,6 +6,8 @@
 // 效能：系列與卡包的索引由 js/seriesCatalog.js 建一次（Map），這一頁只在
 // 索引上查表，不會每次點選都掃全部 15,846 張卡。
 import { getAllCards, getSpecies, getAllSetsMeta } from "../data.js";
+import { isAppMode } from "../appMode.js";
+import { label, markLabelForMode } from "../appLabels.js";
 import {
   getSeriesList, getSetsOfSeries, getCardsOfSet, getSeriesDisplay,
   seriesOfCard, getRegulationMark, markLabel, getAllMarks, MARK_STATUS,
@@ -57,7 +59,7 @@ export async function renderSeriesBrowse() {
     <section class="cat-browse-grid">
       ${seriesList.map((s) => `
         <a class="cat-browse-tile" href="#/sets/${encodeURIComponent(s.id)}" style="--badge-color:#4f8cff">
-          <div class="cat-browse-head"><span class="cat-browse-label">${escapeHtml(s.zh)}</span></div>
+          <div class="cat-browse-head"><span class="cat-browse-label">${escapeHtml(label(s.zh) || s.zh)}</span></div>
           <div class="cat-browse-nums"><strong>${ownedBySeries[s.id] || 0}</strong>
             <span class="cat-browse-denom">/ ${s.cardCount}</span></div>
           <div class="cat-browse-sub">已收藏 / 收錄張數</div>
@@ -159,11 +161,11 @@ export async function renderSeriesDetail(params) {
           <option value="all">全部規則標記</option>
           ${marks.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)} 標記</option>`).join("")}
           <option value="__none">無標記</option>
-          <option value="__unknown">待確認</option>
+          <option value="__unknown">${escapeHtml(markLabelForMode("待確認"))}</option>
         </select>
         <select id="sb-cat" class="cat-select">
           <option value="all">全部稀有度分類</option>
-          ${CARD_CATEGORY_DEFS.map((d) => `<option value="${d.id}">${escapeHtml(d.label)}</option>`).join("")}
+          ${CARD_CATEGORY_DEFS.map((d) => `<option value="${d.id}">${escapeHtml(label(d.label) || d.label)}</option>`).join("")}
         </select>
         <div class="seg-group" id="sb-owned">
           <button class="seg-btn" data-v="all">全部</button>
@@ -173,7 +175,7 @@ export async function renderSeriesDetail(params) {
       </div>
       <div class="cat-result-line" id="sb-result"></div>
       <div class="export-radio-row">
-        <a class="text-btn" id="sb-export" href="#/export">📤 依目前條件匯出 Excel</a>
+        ${isAppMode() ? "" : `<a class="text-btn" id="sb-export" href="#/export">📤 依目前條件匯出 Excel</a>`}
       </div>
     </section>
 

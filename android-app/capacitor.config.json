@@ -1,0 +1,21 @@
+{
+  "appId": "tw.shinfu.ptcgdex",
+  "appName": "PTCG圖鑑",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#14151c",
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "launchAutoHide": false,
+      "backgroundColor": "#14151c",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    }
+  }
+}

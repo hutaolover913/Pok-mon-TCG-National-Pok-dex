@@ -1,0 +1,24 @@
+{
+  "name": "ptcg-dex-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "寶可夢 PTCG 全圖鑑收藏 — Android App 版（收藏專用，不含資料整理功能）",
+  "scripts": {
+    "build": "python build_www.py",
+    "sync": "python build_www.py && cap sync",
+    "open": "cap open android",
+    "run": "python build_www.py && cap sync && cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor/share": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

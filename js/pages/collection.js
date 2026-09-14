@@ -7,7 +7,8 @@ import {
   bulkClearOwnership,
   restoreLastClear,
   getLastClearSnapshotInfo,
-  exportAllData
+  exportAllData,
+  exportCollectionOnly
 } from "../db.js";
 import { CARD_CATEGORY_DEFS, getCategoryDef } from "../cardCategories.js";
 import { sortSets, getSetSort, formatReleaseDate } from "../seriesCatalog.js";
@@ -18,7 +19,9 @@ import {
   bindBulkBar, bindCheckboxDelegation, syncSelectionToDom, setBulkProgress,
   runOnce
 } from "../components/bulkSelect.js";
-import { downloadBlob } from "../exporters.js";
+import { isAppMode } from "../appMode.js";
+import { label } from "../appLabels.js";
+import { saveJson } from "../saveFile.js";
 
 const LANG_LABEL = { en: "英文版（美版）", ja: "日文版", "zh-Hant": "繁體中文版", "zh-Hans": "簡體中文版" };
 const PAGE_SIZE = 60;
@@ -62,20 +65,7 @@ export async function renderCollection() {
       <p class="subtitle">目前收錄範圍內的收藏統計（非官方全卡表完成率）</p>
     </header>
 
-    <section class="stat-cards">
-      <div class="stat-card big">
-        <div class="stat-card-value">${litCount} <span class="stat-card-denom">/ ${species.length}</span></div>
-        <div class="stat-card-label">已點亮寶可夢數（依目前圖鑑收錄）</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-value">${distinctVariants}</div>
-        <div class="stat-card-label">已收藏的不同卡片版本數</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-value">${totalPhysical}</div>
-        <div class="stat-card-label">實體卡片總張數</div>
-      </div>
-    </section>
+    ${renderCollectionStats({ litCount, speciesTotal: species.length, distinctVariants, totalPhysical })}
 
     <section class="clear-entry">
       <button class="danger-btn" id="clear-collection-btn">🧹 清除收藏…</button>
@@ -87,21 +77,7 @@ export async function renderCollection() {
       <p class="hint-text">清除的只有「收藏狀態與持有張數」。卡片、圖片、<strong>手動整理好的分類</strong>、原始稀有度與備註都會保留。</p>
     </section>
 
-    <section class="cat-stat-section">
-      <h2>各分類已點亮寶可夢數</h2>
-      <div class="cat-stat-grid">
-        ${categories
-          .map(
-            (c) => `
-          <a class="cat-stat-tile" href="#/types/${encodeURIComponent(c.id)}" data-cat="${c.id}" style="--badge-color:${c.color}">
-            <div class="cat-stat-label">${escapeHtml(c.label)}</div>
-            <div class="cat-stat-value">${perCategoryLit[c.id] || 0}</div>
-          </a>`
-          )
-          .join("")}
-      </div>
-      <p class="hint-text">「已點亮」代表擁有至少一張該分類卡片，或手動標記，不代表已收齊該分類所有版本。</p>
-    </section>
+    ${renderCategoryProgress(categories, perCategoryLit)}
 
     <section class="collection-list-section">
       <div class="detail-cards-headrow">
@@ -158,7 +134,7 @@ function buildFilterOptions(ownership) {
   for (const def of CARD_CATEGORY_DEFS) {
     const n = owned.filter(({ card }) => (card.categoryIds || []).includes(def.id)).length;
     if (n === 0) continue;
-    catSel.insertAdjacentHTML("beforeend", `<option value="${def.id}">${escapeHtml(def.label)}（${n}）</option>`);
+    catSel.insertAdjacentHTML("beforeend", `<option value="${def.id}">${escapeHtml(label(def.label) || def.label)}（${n}）</option>`);
   }
   const langSel = document.getElementById("col-lang");
   for (const l of Array.from(new Set(owned.map(({ card }) => card.language))).sort()) {
@@ -418,7 +394,7 @@ async function openClearDialog(initialScope) {
           ${CARD_CATEGORY_DEFS.map((d) => {
             const n = owned.filter(({ card }) => (card.categoryIds || []).includes(d.id)).length;
             return `<label class="export-cat-item"><input type="checkbox" data-ccat="${d.id}" />
-              <span>${escapeHtml(d.label)}</span><span class="export-cat-count">${n}</span></label>`;
+              <span>${escapeHtml(label(d.label) || d.label)}</span><span class="export-cat-count">${n}</span></label>`;
           }).join("")}
         </div>
         <div class="cat-filter-row">
@@ -490,11 +466,20 @@ async function openClearDialog(initialScope) {
   });
 
   $('[data-action="backup"]').addEventListener("click", async () => {
-    const data = await exportAllData();
+    // App 版只備份收藏本身；電腦版備份完整快照（含手動分類）。
+    // 另外走 saveJson 而不是 <a download> —— 後者在 Android WebView 會**默默失敗**，
+    // 使用者會以為備份好了其實沒有。saveJson 會如實回報成敗。
+    const data = isAppMode() ? await exportCollectionOnly() : await exportAllData();
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
-      `清除前備份_寶可夢PTCG收藏備份_${ts}.json`);
-    showToast("已下載備份檔，裡面包含收藏紀錄與手動分類");
+    const res = await saveJson(data, `清除前備份_寶可夢PTCG收藏備份_${ts}.json`);
+    if (res.ok) {
+      showToast(isAppMode()
+        ? "已儲存備份檔，裡面是你的收藏紀錄"
+        : "已下載備份檔，裡面包含收藏紀錄與手動分類");
+    } else {
+      showToast(`備份失敗，請先確認能存檔再清除：${res.error ? res.error.message : "原因不明"}`,
+        { duration: 15000 });
+    }
   });
 
   confirmBtn.addEventListener("click", async () => {
@@ -642,4 +627,46 @@ function renderPlanSummary(plan, scope) {
     lines.push(`<div class="warn-line">這個範圍目前沒有任何可清除的收藏。</div>`);
   }
   return lines.join("");
+}
+
+// -------------------------------------------------- 給「收藏進度」頁共用的區塊
+//
+// 抽出來不是為了整理，是為了**不要有第二份**。App 版的收藏進度分頁直接呼叫
+// 這兩個函式，數字的算法只會有一種，不會出現兩頁對不起來的情況。
+
+export function renderCollectionStats({ litCount, speciesTotal, distinctVariants, totalPhysical }) {
+  return `
+    <section class="stat-cards">
+      <div class="stat-card big">
+        <div class="stat-card-value">${litCount} <span class="stat-card-denom">/ ${speciesTotal}</span></div>
+        <div class="stat-card-label">已點亮寶可夢數（依目前圖鑑收錄）</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value">${distinctVariants}</div>
+        <div class="stat-card-label">已收藏的不同卡片版本數</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value">${totalPhysical}</div>
+        <div class="stat-card-label">實體卡片總張數</div>
+      </div>
+    </section>`;
+}
+
+export function renderCategoryProgress(categories, perCategoryLit) {
+  return `
+    <section class="cat-stat-section">
+      <h2>各分類已點亮寶可夢數</h2>
+      <div class="cat-stat-grid">
+        ${categories
+          .map(
+            (c) => `
+          <a class="cat-stat-tile" href="#/types/${encodeURIComponent(c.id)}" data-cat="${c.id}" style="--badge-color:${c.color}">
+            <div class="cat-stat-label">${escapeHtml(label(c.label) || c.label)}</div>
+            <div class="cat-stat-value">${perCategoryLit[c.id] || 0}</div>
+          </a>`
+          )
+          .join("")}
+      </div>
+      <p class="hint-text">「已點亮」代表擁有至少一張該分類卡片，或手動標記，不代表已收齊該分類所有版本。</p>
+    </section>`;
 }

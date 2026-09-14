@@ -17,6 +17,10 @@ import { getAllOwnership, getOwnership, setOwnership } from "../db.js";
 import { sortSets, getSetSort, formatReleaseDate } from "../seriesCatalog.js";
 import { escapeHtml, imgFallbackAttr, debounce, padDex, showToast, PLACEHOLDER_IMAGE } from "../utils.js";
 import { renderCategoryPicker, bindCategoryPickers } from "../components/categoryPicker.js";
+import { isAppMode } from "../appMode.js";
+import { label } from "../appLabels.js";
+import { saveView, readView } from "../viewState.js";
+import { requestScrollRestore } from "../router.js";
 import {
   createSelection, renderSelectCheckbox, renderBulkBar, refreshBulkBar,
   bindBulkBar, bindCheckboxDelegation, syncSelectionToDom, setBulkProgress,
@@ -81,7 +85,7 @@ export async function renderCardTypes() {
       <h1>卡片分類</h1>
       <p class="subtitle">依卡片稀有度分類瀏覽，跨寶可夢與卡包</p>
       <div class="export-radio-row">
-        <a class="primary-btn" href="#/export" style="text-decoration:none">📤 匯出卡表（Excel／Word）</a>
+        ${isAppMode() ? "" : `<a class="primary-btn" href="#/export" style="text-decoration:none">📤 匯出卡表（Excel／Word）</a>`}
       </div>
     </header>
 
@@ -94,7 +98,7 @@ export async function renderCardTypes() {
            href="#/types/${encodeURIComponent(def.id)}"
            style="--badge-color:${def.color}">
           <div class="cat-browse-head">
-            <span class="cat-browse-label">${escapeHtml(def.label)}</span>
+            <span class="cat-browse-label">${escapeHtml(label(def.label) || def.label)}</span>
           </div>
           ${
             empty
@@ -149,8 +153,16 @@ export async function renderCardTypeDetail(params) {
     filterState.language = "all";
     filterState.setKey = "all";
     filterState.sort = "dex";
+    // 換分類就重來；回到同一個分類則沿用剛才載到哪裡
+    filterState.limit = PAGE_SIZE;
+  } else {
+    const saved = readView(`/types/${categoryId}`);
+    filterState.limit = saved && saved.limit ? saved.limit : PAGE_SIZE;
   }
-  filterState.limit = PAGE_SIZE;
+
+  // 從卡片詳情返回時回到剛才的位置。第一次進來 savedView 是 null，行為與改版前相同。
+  const savedView = readView(`/types/${categoryId}`);
+  if (savedView && savedView.scrollY) requestScrollRestore(savedView.scrollY);
 
   const all = cardsInCategory(categoryId);
   const setsMeta = getAllSetsMeta();
@@ -162,9 +174,11 @@ export async function renderCardTypeDetail(params) {
         <h1>${escapeHtml(def.label)}</h1>
       </header>
       <div class="empty-state">
-        ${def.manualOnly ? "0 張／尚未加入卡片" : "目前尚未收錄"}<br />
+        ${def.manualOnly && !isAppMode() ? "0 張／尚未加入卡片" : "目前尚未收錄"}<br />
         <span class="hint-text">${
-          def.manualOnly
+          isAppMode()
+            ? "這不代表這個分類不存在，只是目前圖鑑裡還沒有收到這一類的卡片。"
+            : def.manualOnly
             ? "這是只能手動加入的分類，系統不會自動把卡片放進來。要加卡片：到別的分類頁開啟「批量編輯」，勾選卡片後按「移動到分類…」選這一類；或在單張卡片下方的分類選單直接指定。"
             : "這不代表這個分類不存在，只是目前資料庫還沒有收到這一類的卡片。"
         }</span>
@@ -271,6 +285,7 @@ function bindFilters() {
 
   document.getElementById("ct-more").addEventListener("click", () => {
     filterState.limit += PAGE_SIZE;
+    saveView(`/types/${filterState.categoryId}`, { limit: filterState.limit });
     draw();
   });
 }
@@ -376,15 +391,17 @@ function renderCardCell(card, own) {
         }</span>
         ${(card.tags || []).map((t) => `<span class="mech-tag">${escapeHtml(t)}</span>`).join("")}
       </div>
-      ${
-        card.categoryOverrideId
-          ? `<div class="ct-cell-manual">手動指定</div>`
-          : rule.confidence !== "printed"
-          ? `<div class="ct-cell-confidence" title="${escapeHtml(rule.note)}">${escapeHtml(
-              CONFIDENCE_LABEL[rule.confidence] || rule.confidence
-            )}</div>`
-          : ""
-      }
+      ${(() => {
+        // App 版把「手動指定」與資料品質標記藏起來：那是整理資料時用的，
+        // 收藏者不需要看到。label() 回空字串就整個元素不產生。
+        if (card.categoryOverrideId) {
+          const t = label("手動指定");
+          return t ? `<div class="ct-cell-manual">${escapeHtml(t)}</div>` : "";
+        }
+        if (rule.confidence === "printed") return "";
+        const t = label(CONFIDENCE_LABEL[rule.confidence] || rule.confidence);
+        return t ? `<div class="ct-cell-confidence" title="${escapeHtml(rule.note)}">${escapeHtml(t)}</div>` : "";
+      })()}
       ${renderCategoryPicker(card, { compact: true })}
     </div>
     <div class="ct-cell-owner">
@@ -538,7 +555,7 @@ function openMoveDialog() {
         收藏狀態、持有張數、備註、卡片 ID、原始稀有度與圖片都不會被動到。</p>
       <label class="modal-label">目標分類
         <select id="bulk-move-target" class="cat-select">
-          ${CARD_CATEGORY_DEFS.map((d) => `<option value="${d.id}">${escapeHtml(d.label)}</option>`).join("")}
+          ${CARD_CATEGORY_DEFS.map((d) => `<option value="${d.id}">${escapeHtml(label(d.label) || d.label)}</option>`).join("")}
         </select>
       </label>
       <div id="bulk-move-summary" class="modal-summary"></div>
