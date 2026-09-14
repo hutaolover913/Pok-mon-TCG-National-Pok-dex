@@ -147,13 +147,35 @@ def fetch_json(url):
     return None, last or "unknown"
 
 
+def tcgdex_ref(src_id, lang, set_id, num):
+    """從「穩定來源卡片 ID」取出 TCGdex 真正的語言與卡片 ID。
+
+    格式是 `tcgdex:<lang>:<cardId>`，cardId 必須原樣使用，不能自己用
+    「卡包代碼 + 去零卡號」拼回去 —— TCGdex 的 localId 各系列寫法不同：
+
+        en bwp   -> bwp-BW01 （保留前導零）
+        en dpp   -> dpp-DP01
+        ja SM8b  -> SM8b-001 （三位補零）
+        en sm12  -> sm12-1   （不補零）
+
+    先前這裡用 norm_num 去掉前導零再拼，於是 BW01 變成 BW1、001 變成 1，
+    造成 4,922 列拿到 http_404 被誤判成「來源查不到這張卡」。實際上是我們
+    問錯了網址：已用 API 逐一核對過 bwp-BW01、dpp-DP01、SM8b-001 都存在。
+    """
+    parts = str(src_id or "").split(":")
+    if len(parts) == 3 and parts[0] == "tcgdex" and parts[1] and parts[2]:
+        return parts[1], parts[2]
+    return lang, set_id + "-" + num
+
+
 def from_tcgdex(row, lang, set_id, num, src_id, key):
     """來源網址指向 TCGdex 原始碼倉庫時，改用它的公開 API 取結構化資料。
 
     比硬解析 .ts 原始碼可靠，而且 API 會一起給圖片基底網址。
     抓不到就標 needs_review，不會當成成功。
     """
-    url = TCGDEX_API + "/" + lang + "/cards/" + set_id + "-" + num
+    api_lang, card_id = tcgdex_ref(src_id, lang, set_id, num)
+    url = TCGDEX_API + "/" + api_lang + "/cards/" + card_id
     data, err = fetch_json(url)
     if data is None:
         return key, {"status": "needs_review", "reason": "TCGdex API 取不到（" + str(err) + "）",
@@ -192,6 +214,8 @@ def from_tcgdex(row, lang, set_id, num, src_id, key):
         # TCGdex 的圖片是基底網址，實際檔案由 step5 那套 low/high + webp/png 邏輯決定
         "imageBase": image_base,
         "imageUrl": (image_base + "/low.webp") if image_base else None,
+        # 部分日版卡 TCGdex 沒有圖，先標出來讓後面的圖片步驟去別的來源補，不要當成已有圖
+        "imageMissing": not image_base,
         "fetchedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
