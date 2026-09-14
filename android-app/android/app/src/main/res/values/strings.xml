@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PTCG圖鑑</string>
+    <string name="title_activity_main">PTCG圖鑑</string>
+    <string name="package_name">tw.shinfu.ptcgdex</string>
+    <string name="custom_url_scheme">tw.shinfu.ptcgdex</string>
+</resources>
