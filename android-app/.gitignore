@@ -36,3 +36,12 @@ android/app/src/main/assets/public/
 keystore.properties
 android/app/release/
 .env
+
+# ------------------------------------------------------------
+# 你從電腦版匯出的備份，build_www.py 用它取出手動分類。
+#
+# 這是完整備份，裡面有你的收藏紀錄，屬於個人資料，絕對不要 commit。
+# build_www.py 只會讀 categoryOverrides 與 fieldOverrides 兩項，
+# 收藏張數、點亮紀錄、自訂圖片都不會進 APK。
+# ------------------------------------------------------------
+curation-source.json

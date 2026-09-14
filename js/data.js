@@ -28,9 +28,19 @@ function buildCategoryResolver(categories) {
   return (rarity) => map.get((rarity || "").toLowerCase()) || "OTHER";
 }
 
+// App 版的手動整理結果。
+//
+// 電腦版的手動分類存在 IndexedDB，但 App 是不同的 origin，那些資料過不去，
+// 而且 App 刻意不允許寫入策展資料（js/db.js 的 tx() 守衛）。
+//
+// 所以改成「建置時烤進去」：android-app/build_www.py 從你匯出的備份裡取出
+// cardCategoryOverrides 與 cardFieldOverrides，寫成 www/data/manual_overrides.json。
+// 對 App 來說那是唯讀的靜態檔，使用者改不了，但顯示出來的分類與電腦版一致。
+let staticOverrides = null;
+
 export async function loadStaticData() {
   if (speciesList && cardsList) return;
-  const [speciesRes, cardsRes, setsRes, localMapRes, candidatesRes, categories] = await Promise.all([
+  const [speciesRes, cardsRes, setsRes, localMapRes, candidatesRes, manualRes, categories] = await Promise.all([
     fetch("data/species.json"),
     fetch("data/cards.json"),
     fetch("data/sets.json"),
@@ -43,6 +53,8 @@ export async function loadStaticData() {
     // 候選卡圖只有電腦版的「換版本」功能會用，App 版整個不提供，
     // 檔案也不會被複製進去 —— 所以乾脆不要發那個注定 404 的請求。
     isAppMode() ? Promise.resolve(null) : fetch("data/image_candidates.json").catch(() => null),
+    // App 版：建置時烤進去的手動整理結果。沒有這個檔案就只顯示自動判定的分類。
+    isAppMode() ? fetch("data/manual_overrides.json").catch(() => null) : Promise.resolve(null),
     getAllCategories()
   ]);
   speciesList = await speciesRes.json();
@@ -52,6 +64,18 @@ export async function loadStaticData() {
   // 待人工核對的候選卡圖（data/pipeline/step13_build_candidate_list.py 產生）。
   // 這些卡片在兩個資料庫之間編號規則不同，無法機械式確認是不是同一版本，
   // 所以不自動套用，只在詳細頁顯示給使用者自己看圖決定。
+  if (manualRes && manualRes.ok) {
+    try {
+      const doc = await manualRes.json();
+      staticOverrides = {
+        categories: doc.categories || {},
+        fields: doc.fields || {}
+      };
+    } catch {
+      staticOverrides = null;
+    }
+  }
+
   if (candidatesRes && candidatesRes.ok) {
     try {
       imageCandidates = await candidatesRes.json();
@@ -129,6 +153,14 @@ export async function applyCategoryOverrides() {
   const overrides = await getAllCategoryOverrides();
   const overrideMap = new Map(overrides.map((o) => [o.cardId, o.categoryId]));
 
+  // App 版把建置時烤進去的手動分類疊上來。資料庫裡的紀錄優先（App 版不會有，
+  // 但這樣寫的話網頁版拿同一份檔案來測也不會被蓋掉）。
+  if (staticOverrides) {
+    for (const [cardId, categoryId] of Object.entries(staticOverrides.categories)) {
+      if (!overrideMap.has(cardId)) overrideMap.set(cardId, categoryId);
+    }
+  }
+
   // 一定要先把「目前帶著手動分類、但資料庫裡已經沒有那筆紀錄」的卡片還原成
   // 自動分類，否則批量復原（把覆寫刪掉）之後，記憶體裡的卡片會繼續停在舊分類，
   // 畫面上看起來像復原失敗。
@@ -167,6 +199,12 @@ export function refreshCategoryOverrideForCard(cardId, overrideCategoryId) {
 export async function applyFieldOverrides() {
   const overrides = await getAllFieldOverrides();
   const map = new Map(overrides.map((o) => [o.cardId, o]));
+
+  if (staticOverrides) {
+    for (const [cardId, rec] of Object.entries(staticOverrides.fields)) {
+      if (!map.has(cardId)) map.set(cardId, rec);
+    }
+  }
 
   for (const card of cardsList) {
     const rec = map.get(card.id);

@@ -220,6 +220,83 @@ def build_images():
     return count, total
 
 
+CURATION_SRC = os.path.join(HERE, "curation-source.json")
+
+
+def build_manual_overrides():
+    """把你在電腦版手動整理的分類烤成 App 的唯讀靜態檔。
+
+    -- 為什麼要這一步 --------------------------------------------------------
+    電腦版的手動分類存在瀏覽器的 IndexedDB。App 是不同的 origin（https://localhost
+    對 http://localhost:8811），那些資料過不去；而且 App 刻意不允許寫入策展資料
+    （js/db.js 的 tx() 守衛），所以也不能靠「匯入」把它們塞進 App 的資料庫。
+
+    做法是把它們變成 APK 裡的一個靜態 JSON。對 App 來說是唯讀的 —— 使用者
+    改不了，但看到的分類與電腦版完全一致。守衛一點都不用鬆綁。
+
+    -- 你要做的 --------------------------------------------------------------
+    電腦版「設定 → 匯出 JSON 備份」，把檔案存成：
+
+        android-app/curation-source.json
+
+    這個腳本只會讀裡面的 categoryOverrides 與 fieldOverrides 兩項，
+    收藏張數、點亮紀錄、自訂圖片都不會被讀取，也不會進 APK。
+    """
+    if not os.path.exists(CURATION_SRC):
+        return None
+
+    with open(CURATION_SRC, encoding="utf-8") as f:
+        doc = json.load(f)
+
+    cats = {}
+    for rec in doc.get("categoryOverrides") or []:
+        cid = rec.get("cardId")
+        cat = rec.get("categoryId")
+        if cid and cat:
+            cats[cid] = cat
+
+    fields = {}
+    for rec in doc.get("fieldOverrides") or []:
+        cid = rec.get("cardId")
+        if not cid:
+            continue
+        keep = {k: rec[k] for k in ("seriesId", "setKey", "regulationMark")
+                if rec.get(k)}
+        if keep:
+            fields[cid] = keep
+
+    # 核對每個被指定的分類 id 在 App 內建的分類定義裡真的存在。
+    # 對不到通常代表那是你自己新增的自訂分類 —— 這次沒有帶進 App，
+    # 所以要明講是哪幾張，不能默默丟掉。
+    known = set()
+    with open(os.path.join(ROOT, "js", "cardCategories.js"), encoding="utf-8") as f:
+        for m in re.finditer(r'id:\s*"([A-Z_]+)"', f.read()):
+            known.add(m.group(1))
+    unknown = {}
+    for cid, cat in cats.items():
+        if cat not in known:
+            unknown.setdefault(cat, []).append(cid)
+
+    out = {
+        "source": os.path.basename(CURATION_SRC),
+        "exportedAt": doc.get("exportedAt"),
+        "categories": {k: v for k, v in cats.items() if v in known},
+        "fields": fields
+    }
+    dst = os.path.join(WWW, "data", "manual_overrides.json")
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    with open(dst, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(out, f, ensure_ascii=False)
+
+    return {
+        "categories": len(out["categories"]),
+        "fields": len(fields),
+        "unknown": unknown,
+        "bytes": os.path.getsize(dst),
+        "exportedAt": doc.get("exportedAt")
+    }
+
+
 def verify():
     """建置完自己檢查一遍。這同時是「管理功能沒進 APK」這一層的迴歸測試。"""
     problems = []
@@ -302,6 +379,8 @@ def main():
     sizes["icons"] = icons
     sizes["data"] = build_data()
     thumb_count, sizes["images"] = build_images()
+    manual = build_manual_overrides()
+    sizes["manual"] = manual["bytes"] if manual else 0
 
     print()
     print("  js/            %5d 個檔案   %s" % (js_count + len(STUBS), human(sizes["js"])))
@@ -311,12 +390,27 @@ def main():
     print("  images/cards/  %5d 個檔案   %s  （官方 CDN 沒有的內建卡圖）"
           % (thumb_count, human(sizes["images"])))
     print("  index.html                    %s" % human(sizes["index.html"]))
+    if manual:
+        print("  手動整理結果                  %s  （分類 %d 張、欄位 %d 張）"
+              % (human(sizes["manual"]), manual["categories"], manual["fields"]))
     print("  " + "-" * 46)
     print("  合計                          %s" % human(sum(sizes.values())))
     print()
     print("  省略的管理用檔案：%s" % "、".join(sorted(OMIT_JS)))
     print("  換成空實作的樁：  %s" % "、".join(sorted(STUBS)))
     print()
+
+    if manual is None:
+        print("  ! 沒有 android-app/curation-source.json，所以 App 只會顯示自動判定的分類。")
+        print("    要讓 App 跟電腦版一致：電腦版「設定 → 匯出 JSON 備份」，")
+        print("    存成 android-app/curation-source.json 再跑一次這支程式。")
+        print()
+    elif manual["unknown"]:
+        print("  ! 下列分類不在 App 內建的定義裡，這些卡的手動分類沒有帶進去：")
+        for cat, ids in sorted(manual["unknown"].items()):
+            print("      %s：%d 張（例：%s）" % (cat, len(ids), ids[0]))
+        print("    這通常代表它是你自己新增的自訂分類，而這次沒有把自訂分類帶進 App。")
+        print()
 
     problems = verify()
     if problems:
@@ -327,9 +421,9 @@ def main():
 
     print("建置檢查全部通過。")
     print()
-    print("要在桌機先看看 App 版長什麼樣（不需要 Android 工具）：")
-    print("    python -m http.server 8899 -d \"%s\"" % WWW)
-    print("    然後開 http://localhost:8899")
+    print("要看看 App 版長什麼樣（不需要 Android 工具）：")
+    print("    python android-app/preview.py")
+    print("  電腦用 http://localhost:8899，手機用它印出來的內網網址。")
     print("  用 8899 而不是 8811 是刻意的 —— 不同的埠有各自的 IndexedDB，")
     print("  測試時碰不到你平常在用的收藏資料。")
 
