@@ -13,6 +13,7 @@ import {
 } from "../db.js";
 import { escapeHtml, showToast } from "../utils.js";
 import { previewCategoryFixes, applyCategoryFixes } from "../categoryFixes.js";
+import { previewRrRegroup, applyRrRegroup } from "../rrRegroup.js";
 import { applyCategoryOverrides } from "../data.js";
 import { downloadBlob } from "../exporters.js";
 import { applyTheme } from "../theme.js";
@@ -84,6 +85,25 @@ export async function renderSettings() {
     </section>
 
     <section class="settings-section">
+      <h2>RR／RRR 歸位</h2>
+      <p class="hint-text">
+        RR 與 RRR 原本併在「普通卡」裡，現在各自獨立成分類，<strong>沒有手動指定過的卡片會自動歸位，不用按任何按鈕</strong>。
+        這個按鈕只處理兩種自動規則刻意不會碰的卡：你先前<strong>手動</strong>指定成「普通卡」但其實是 RR／RRR 的卡，
+        以及<strong>手動放在 RR、但其實是 RRR</strong> 的 VMAX／VSTAR。
+      </p>
+      <p class="hint-text">
+        判定依據是日版卡面右下角實際印的代碼（S10P #001 スピアーV 印 RR、S10P #015 ヒードランVMAX 印 RRR，
+        朱紫世代另核對 SV8a #003、S12a #012）。英文卡卡面不印這個代碼，依同一批次的機制對應：
+        <code>Double Rare</code>＝ex、<code>Holo Rare V</code>＝V 歸 RR；<code>Holo Rare VMAX／VSTAR</code> 歸 RRR。
+        手動放在其他分類（例如你自己判斷成 SR）的卡<strong>不在範圍內，一律保留原狀</strong>。
+      </p>
+      <div class="export-radio-row">
+        <button class="primary-btn" id="rr-preview-btn">檢視歸位預覽…</button>
+      </div>
+      <div id="rr-status" class="hint-text"></div>
+    </section>
+
+    <section class="settings-section">
       <h2>匯出卡表（查看用）</h2>
       <p class="hint-text">依分類產生 Excel（.xlsx）或 Word（.docx）卡表，可選分類、收藏範圍，並沿用「卡片分類」頁的篩選條件。匯出用的是目前已儲存的最新分類，包含你手動指定過的。</p>
       <div class="export-radio-row">
@@ -117,6 +137,7 @@ export async function renderSettings() {
   bindBackup();
   showStorageStatus();
   bindCategoryFixes();
+  bindRrRegroup();
   bindDanger();
 }
 
@@ -216,6 +237,128 @@ function bindThemeButtons() {
       applyTheme(theme);
       document.querySelectorAll(".theme-btn").forEach((b) => b.classList.toggle("active", b === btn));
     });
+  });
+}
+
+// ---------------------------------------------------------- RR／RRR 歸位
+
+function bindRrRegroup() {
+  const btn = document.getElementById("rr-preview-btn");
+  if (!btn) return;
+  btn.addEventListener("click", openRrDialog);
+  showRrStatus();
+}
+
+function showRrStatus() {
+  const el = document.getElementById("rr-status");
+  if (!el) return;
+  try {
+    const p = previewRrRegroup();
+    const parts = p.groups.filter((g) => g.cards.length).map((g) => `${escapeHtml(g.label)} ${g.cards.length} 張`);
+    el.innerHTML = parts.length
+      ? `需要歸位：${parts.join("、")}（共 <strong>${p.total}</strong> 張）。`
+        + `另有 RR ${p.autoHandled.RR} 張、RRR ${p.autoHandled.RRR} 張已由自動規則歸位，不需處理。`
+      : `沒有需要手動歸位的卡片。目前 RR ${p.autoHandled.RR} 張、RRR ${p.autoHandled.RRR} 張都已由自動規則歸位。`;
+  } catch (err) {
+    el.textContent = `計算歸位清單失敗：${err.message}`;
+  }
+}
+
+function rrGroupTable(g) {
+  if (g.cards.length === 0) {
+    return `<p class="hint-text">${escapeHtml(g.label)}：沒有需要搬移的卡片</p>`;
+  }
+  return `<details open>
+    <summary>${escapeHtml(g.label)}（${g.cards.length}）</summary>
+    <div class="fix-table-wrap"><table class="fix-table">
+      <thead><tr><th>卡片 ID</th><th>卡名</th><th>版本</th><th>來源稀有度</th><th>移動</th></tr></thead>
+      <tbody>${g.cards.map((c) => `<tr>
+        <td><code>${escapeHtml(c.cardId)}</code></td>
+        <td>${escapeHtml(c.name || "")}</td>
+        <td>${escapeHtml(c.language === "ja" ? "日文版" : c.language === "en" ? "英文版" : c.language)} ·
+            ${escapeHtml(c.setId || "")} · ${escapeHtml(String(c.cardNumber || ""))}</td>
+        <td>${escapeHtml(c.originalRarity || "—")}</td>
+        <td>${escapeHtml(c.fromLabel)} → <strong>${escapeHtml(c.toLabel)}</strong></td>
+      </tr>`).join("")}</tbody>
+    </table></div>
+  </details>`;
+}
+
+async function openRrDialog() {
+  const old = document.getElementById("rr-dialog");
+  if (old) old.remove();
+
+  let p;
+  try {
+    p = previewRrRegroup();
+  } catch (err) {
+    alert("計算歸位清單失敗：" + err.message);
+    return;
+  }
+
+  const dlg = document.createElement("div");
+  dlg.id = "rr-dialog";
+  dlg.className = "modal-backdrop";
+  dlg.innerHTML = `
+    <div class="modal wide" role="dialog" aria-modal="true">
+      <h3>RR／RRR 歸位</h3>
+      <div class="modal-summary">
+        <div>將搬移：<strong>${p.total}</strong> 張（都是你先前手動指定過、自動規則不會碰的卡）</div>
+        <div>已由自動規則歸位、不需處理：RR <strong>${p.autoHandled.RR}</strong> 張、RRR <strong>${p.autoHandled.RRR}</strong> 張</div>
+        <div>手動放在其他分類、不在這次範圍：<strong>${p.skipped.length}</strong> 張 —— <strong>保留原狀不動</strong></div>
+        <div class="hint-text">只更動分類。收藏狀態、持有張數、備註、自訂圖片與其他手動分類都不受影響。</div>
+      </div>
+      ${p.groups.map(rrGroupTable).join("")}
+      ${p.skipped.length ? `<details><summary>手動放在其他分類、保留不動（${p.skipped.length}）</summary>
+        <ul class="hint-text">${p.skipped.map((c) => `<li><code>${escapeHtml(c.cardId)}</code> ${escapeHtml(c.name || "")}：`
+          + `目前在「${escapeHtml(c.currentLabel)}」，自動規則會判成「${escapeHtml(c.wouldBe)}」 —— 尊重你的指定，不動</li>`).join("")}</ul></details>` : ""}
+      <div class="modal-actions">
+        <button class="text-btn" data-action="backup">先下載 JSON 備份</button>
+        <button class="text-btn" data-action="cancel">取消</button>
+        <button class="primary-btn" data-action="confirm" ${p.total === 0 ? "disabled" : ""}>搬移 ${p.total} 張</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dlg);
+
+  dlg.querySelector('[data-action="cancel"]').addEventListener("click", () => dlg.remove());
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg) dlg.remove();
+  });
+  dlg.querySelector('[data-action="backup"]').addEventListener("click", async () => {
+    const data = await exportAllData();
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+      `RR歸位前備份_寶可夢PTCG收藏備份_${ts}.json`);
+    showToast("已下載備份檔，裡面包含收藏紀錄與全部手動分類");
+  });
+
+  const confirmBtn = dlg.querySelector('[data-action="confirm"]');
+  confirmBtn.addEventListener("click", async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "搬移中…";
+    try {
+      const res = await applyRrRegroup(p, { bulkSetCategoryOverride, applyCategoryOverrides });
+      dlg.remove();
+      showToast(`已把 ${res.applied} 張卡片歸位到 RR／RRR`, {
+        actionLabel: "復原這次搬移",
+        duration: 20000,
+        onAction: async () => {
+          try {
+            await bulkRestoreCategoryOverrides(res.before);
+            await applyCategoryOverrides();
+            showToast(`已復原 ${res.before.length} 張卡片的分類`);
+            renderSettings();
+          } catch (err) {
+            showToast(`復原失敗：${err.message}`, { duration: 12000 });
+          }
+        }
+      });
+      renderSettings();
+    } catch (err) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = `搬移 ${p.total} 張`;
+      showToast(`搬移失敗，資料未變更：${err.message}`, { duration: 15000 });
+    }
   });
 }
 

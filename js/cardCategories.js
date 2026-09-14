@@ -23,6 +23,9 @@
 // "printed"    ：實際看過卡面右下角印的稀有度代碼，最可信。
 // "structural" ：卡圖解析度讀不出代碼，改用卡包編號位置推定
 //                （例如同一個密卡區塊裡、前後卡號已確認是 SR）。
+// "mechanic"   ：英文卡卡面不印日版代碼，改用卡片機制對應日版同一批次的版面
+//                （例如英文 Holo Rare VMAX 的 VMAX，對應日版 VMAX 一般版面的
+//                Triple rare，卡面印 RRR）。比 tier 強，因為機制印在卡面上。
 // "tier"       ：英文卡卡面不印日版代碼，依英文版自己的等級名稱對應到同一個
 //                實體等級（例如英文 Ultra Rare = 全圖 V／ex，等同日版 SR）。
 // "unresolved" ：無法確認，一律進「待確認」，不猜。
@@ -64,7 +67,7 @@ export const CARD_CATEGORY_DEFS = [
   },
   {
     id: "NORMAL", label: "普通卡", order: 9, color: "#8a93a6",
-    description: "卡包內的一般稀有度階梯：C／U／R／RR（Double rare）／RRR（Triple Rare）。不含特殊美術卡與密卡。"
+    description: "卡包內的一般稀有度階梯：C（Common）／U（Uncommon）／R（Rare）與一般閃卡。RR 與 RRR 已各自獨立成分類，不再含在這裡。不含特殊美術卡與密卡。"
   },
   {
     id: "OTHER", label: "其他", order: 10, color: "#6b7280",
@@ -86,12 +89,14 @@ export const CARD_CATEGORY_DEFS = [
   // 稀有度字串可靠地推斷，硬猜只會把卡片分錯。寧可讓使用者自己決定。
   // ---------------------------------------------------------------------
   {
-    id: "RR", label: "RR", order: 12, color: "#5bc0be", manualOnly: true,
-    description: "雙稀有（ダブルレア）。只能手動加入，系統不會自動放卡片進來。"
+    id: "RR", label: "RR", order: 12, color: "#5bc0be",
+    description: "雙稀有（ダブルレア）。日版卡面右下角印 RR，對應來源稀有度 Double rare。"
+      + "機制上是一般版面的 V 與 ex。英文卡不印這個代碼，依同一批次的機制對應（Double Rare＝ex、Holo Rare V＝V）。"
   },
   {
-    id: "RRR", label: "RRR", order: 13, color: "#3aa8a4", manualOnly: true,
-    description: "三稀有（トリプルレア）。只能手動加入，系統不會自動放卡片進來。"
+    id: "RRR", label: "RRR", order: 13, color: "#3aa8a4",
+    description: "三稀有（トリプルレア）。日版卡面右下角印 RRR，對應來源稀有度 Triple rare。"
+      + "機制上是一般版面的 VMAX、VSTAR 與 V-UNION。英文卡不印這個代碼，依機制對應（Holo Rare VMAX／VSTAR）。"
   },
   {
     id: "RADIANT_ZH", label: "光輝", order: 14, color: "#f7b955", manualOnly: true,
@@ -135,8 +140,8 @@ export const RARITY_RULES = {
     "common": { category: "NORMAL", confidence: "printed", note: "卡面 C" },
     "uncommon": { category: "NORMAL", confidence: "printed", note: "卡面 U" },
     "rare": { category: "NORMAL", confidence: "printed", note: "卡面 R（S10P #010 實際核對）" },
-    "double rare": { category: "NORMAL", confidence: "printed", note: "卡面 RR（S10P #001 實際核對）" },
-    "triple rare": { category: "NORMAL", confidence: "printed", note: "卡面 RRR（S10P #015 實際核對）" },
+    "double rare": { category: "RR", confidence: "printed", note: "卡面 RR（劍盾 S10P #001 スピアーV、朱紫 SV8a #003 リーフィアex 兩個世代都實際核對）" },
+    "triple rare": { category: "RRR", confidence: "printed", note: "卡面 RRR（劍盾 S10P #015 ヒードランVMAX、S12a #012 リーフィアVSTAR 實際核對）" },
     "illustration rare": { category: "AR", confidence: "printed", note: "卡面 AR（S12a #173 實際核對）" },
     "special illustration rare": { category: "SAR", confidence: "printed", note: "卡面 SAR（S12a #210 實際核對）" },
     "character rare": { category: "CHR", confidence: "printed", note: "卡面 CHR（S11a #069 實際核對）" },
@@ -156,15 +161,15 @@ export const RARITY_RULES = {
     "uncommon": { category: "NORMAL", confidence: "tier", note: "英文版一般度數" },
     "rare": { category: "NORMAL", confidence: "tier", note: "713 張編號都在卡包總數內" },
     "holo rare": { category: "NORMAL", confidence: "tier", note: "265 張編號都在卡包總數內，屬一般閃卡" },
-    "double rare": { category: "NORMAL", confidence: "tier", note: "英文 Double Rare ＝ 日版 RR" },
-    "triple rare": { category: "NORMAL", confidence: "tier", note: "英文 Triple Rare ＝ 日版 RRR" },
+    "double rare": { category: "RR", confidence: "mechanic", note: "317 張全部是 ex 卡；日版的 ex 一般版面來源稀有度同樣是 Double rare，卡面印 RR" },
+    "triple rare": { category: "RRR", confidence: "tier", note: "目前英文卡資料裡沒有出現過這個字串，沒有實例可核對；先比照日版 Triple rare ＝ RRR" },
     // 這三個是「卡包內的一般 V／VMAX／VSTAR」，不是全圖卡。
     // 內部對照可以直接證明：swsh1 #9 Dhelmise V 是 Holo Rare V（一般版面、編號在
     // 202 以內），同一隻的 swsh1 #187 Dhelmise V 才是 Ultra Rare（全圖）。
     // 這三個字串合計 361 張，編號 100% 都在卡包總數以內。
-    "holo rare v": { category: "NORMAL", confidence: "tier", note: "卡包內一般版面 V 卡（swsh1 #1 Celebi V 抽驗為一般版面），等同日版 RR" },
-    "holo rare vmax": { category: "NORMAL", confidence: "tier", note: "卡包內一般版面卡（swsh1 #34 抽驗為一般版面），等同日版 RR" },
-    "holo rare vstar": { category: "NORMAL", confidence: "tier", note: "卡包內一般版面 VSTAR（swsh9 #014 Shaymin VSTAR 抽驗為一般版面），等同日版 RR" },
+    "holo rare v": { category: "RR", confidence: "mechanic", note: "237 張全部是 V 卡；日版 V 的一般版面是 Double rare，卡面印 RR" },
+    "holo rare vmax": { category: "RRR", confidence: "mechanic", note: "日版 VMAX 的一般版面是 Triple rare，卡面印 RRR（S10P #015 核對）。來源有 5 張這個字串其實不是 VMAX，已逐張看卡面另外處理" },
+    "holo rare vstar": { category: "RRR", confidence: "mechanic", note: "日版 VSTAR 的一般版面是 Triple rare，卡面印 RRR（S12a #012 核對）" },
     "illustration rare": { category: "AR", confidence: "tier", note: "Illustration Rare 就是 AR 這一階的英文名稱" },
     "special illustration rare": { category: "SAR", confidence: "tier", note: "Special Illustration Rare 就是 SAR 這一階的英文名稱" },
     "ultra rare": { category: "SR", confidence: "tier", note: "全圖 V／VMAX／ex 那一階（swsh1 #187–192 抽驗全是 full art V），等同日版 SR；刻意不對應成 UR" },
@@ -196,7 +201,39 @@ export const PROMO_SET_KEYS = new Set([
   "en:swshp", "en:svp", "en:mep", "ja:SV-P", "ja:M-P"
 ]);
 
+// 來源稀有度字串與實際卡片對不上的個案。
+//
+// 只放「實際打開高解析卡圖、看過卡面本身」才確定的個案，而且逐張列出證據。
+// 這裡刻意不做任何規則化推論（例如「卡名結尾不是 VMAX 就自動降級」），
+// 因為卡名本身也可能是來源缺字；有疑義的一律留在對照表的結果，不塞進這裡。
+//
+// 目前全部 5 張，都是 TCGdex 把 "Holo Rare VMAX" 掛在不是 VMAX 的卡上：
+export const CARD_RARITY_EXCEPTIONS = {
+  "tcgdex:en:swsh1-34": {
+    category: "NORMAL", confidence: "printed",
+    note: "卡面是 STAGE 2「Cinderace」HP170，不是 VMAX；來源稀有度 Holo Rare VMAX 有誤，實際是卡包內一般閃卡"
+  },
+  "tcgdex:en:swsh1-35": {
+    category: "NORMAL", confidence: "printed",
+    note: "卡面是 STAGE 2「Cinderace」HP170，不是 VMAX；來源稀有度 Holo Rare VMAX 有誤，實際是卡包內一般閃卡"
+  },
+  "tcgdex:en:swsh10.5-031": {
+    category: "RRR", confidence: "printed",
+    note: "卡面是「Mewtwo VSTAR」HP280；來源稀有度寫成 Holo Rare VMAX，但 VSTAR 與 VMAX 同屬 RRR，結果相同"
+  },
+  "tcgdex:en:swsh11-056": {
+    category: "RR", confidence: "printed",
+    note: "卡面是 BASIC「Magnezone V」HP210，不是 VMAX；V 卡屬 RR，不是 RRR"
+  },
+  "tcgdex:en:swsh11-058": {
+    category: "RR", confidence: "printed",
+    note: "卡面是 BASIC「Rotom V」HP190，不是 VMAX；V 卡屬 RR，不是 RRR"
+  }
+};
+
 function ruleFor(card) {
+  const exception = CARD_RARITY_EXCEPTIONS[card.id];
+  if (exception) return exception;
   const table = RARITY_RULES[card.language];
   if (!table) return null;
   const key = (card.originalRarity || "").trim().toLowerCase();
@@ -280,6 +317,7 @@ export function getCategoryDef(id) {
 export const CONFIDENCE_LABEL = {
   printed: "已核對卡面印刷代碼",
   structural: "依卡包編號位置推定",
+  mechanic: "依卡片機制對應日版同批次",
   tier: "依英文版等級名稱對應",
   unresolved: "無法確認"
 };

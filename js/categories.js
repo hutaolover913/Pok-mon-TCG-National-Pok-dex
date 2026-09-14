@@ -27,8 +27,17 @@ import { CARD_CATEGORY_DEFS } from "./cardCategories.js";
 // 注意：新增「只能手動加入」的分類**不需要**動這個版本號。ensureSeeded() 對
 // 資料庫裡不存在的分類會直接新增，不會碰既有分類的對照設定；版本號一旦變動
 // 反而會把既有內建分類的 rarities 整份重設，可能蓋掉使用者在設定頁改過的對照。
-// 所以這次維持 5 不動。
-export const BUILTIN_RARITY_MAPPING_VERSION = 5;
+// v6：把 RR 與 RRR 從「普通卡」裡拆出來，各自成為有自動對照的分類。
+// 這一項非動版本號不可 —— ensureSeeded() 平常只做「聯集」（補上缺少的字串），
+// 沒辦法把 Double rare 從普通卡的清單裡**移除**，不改版本就會變成同一個字串
+// 同時掛在普通卡與 RR 底下。代價是既有裝置上內建分類的對照會整份重設成新預設，
+// 如果你先前在「設定 > 分類對應」手動改過內建分類的稀有度清單，那些調整會被
+// 這次更新覆蓋（自訂分類與收藏紀錄不受影響）。
+//
+// RRR 的依據：日版 VMAX／VSTAR 的一般版面來源稀有度是 Triple rare，卡面印 RRR
+// （S10P #015 ヒードランVMAX、S12a #012 リーフィアVSTAR 實際核對），
+// 所以 Holo Rare VMAX／VSTAR 歸 RRR，不是 RR。
+export const BUILTIN_RARITY_MAPPING_VERSION = 6;
 
 // 分類 -> 涵蓋的原始稀有度字串（採用資料庫裡實際出現的大小寫寫法）。
 // 來源：data/cards.json 裡所有出現過的 originalRarity，逐一人工核對，
@@ -43,10 +52,7 @@ const RARITIES_BY_CATEGORY = {
   UR: ["Secret Rare", "Rare Secret", "Mega Hyper Rare"],
   PROMO: ["Promo"],
   NORMAL: [
-    "Common", "Uncommon", "Rare", "Rare Holo",
-    "Double rare", "Double Rare", "Triple Rare",
-    "Holo Rare V", "Holo Rare VMAX", "Holo Rare VSTAR",
-    "Rare Holo V", "Rare Holo VMAX", "Rare Holo VSTAR"
+    "Common", "Uncommon", "Rare", "Rare Holo"
   ],
   OTHER: [
     "Radiant Rare", "Amazing Rare", "ACE SPEC Rare", "Black White Rare",
@@ -55,9 +61,17 @@ const RARITIES_BY_CATEGORY = {
     "Rare Rainbow", "Rare Shining", "Gold Secret Rare"
   ],
   UNVERIFIED: [],
-  // 以下是只能手動加入的分類：刻意留空清單，讓自動對照永遠不會把卡片放進來。
-  RR: [],
-  RRR: [],
+  // RR／RRR：一般版面的 V／ex（RR）與 VMAX／VSTAR／V-UNION（RRR）。
+  // 日版卡面實際印這兩個代碼；英文卡不印，依同一批次的機制對應。
+  RR: [
+    "Double rare", "Double Rare",
+    "Holo Rare V", "Rare Holo V"
+  ],
+  RRR: [
+    "Triple rare", "Triple Rare",
+    "Holo Rare VMAX", "Holo Rare VSTAR",
+    "Rare Holo VMAX", "Rare Holo VSTAR"
+  ],
   RADIANT_ZH: [],
   ACE: [],
   SSR: [],
