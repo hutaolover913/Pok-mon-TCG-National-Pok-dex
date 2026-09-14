@@ -220,6 +220,30 @@ def from_tcgdex(row, lang, set_id, num, src_id, key):
     }
 
 
+def split_source_urls(cell):
+    """「卡片資料來源網址」有些格子放了不只一個網址，用換行隔開，例如
+
+        https://limitlesstcg.com/cards/jp/SI/221
+        https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpc/SI/SI_221_R_JP_LG.png
+
+    第一個是卡片頁，第二個是直接的卡圖。先前整格（含換行）被當成一個網址送出去，
+    自然拿到 404 —— 那是我們問錯網址，不是來源沒有這張卡。
+
+    回傳 (頁面網址, 備用圖片網址)。看起來像圖片的那個不會被當成頁面。
+    """
+    parts = [p.strip() for p in str(cell or "").split() if p.strip().startswith("http")]
+    page = None
+    image = None
+    for p in parts:
+        is_img = re.search(r"\.(png|jpg|jpeg|webp)$", p, re.I)
+        if is_img:
+            if image is None:
+                image = p
+        elif page is None:
+            page = p
+    return page or "", image
+
+
 def process(row):
     lang = LANG.get(str(row.get("語言／發行地區") or "").strip())
     set_id = str(row.get("卡包代碼") or "").strip()
@@ -231,7 +255,7 @@ def process(row):
     if not lang or not set_id or not num:
         return key, {"status": "skipped", "reason": "語言／卡包／卡號不完整", "sourceId": src_id}
 
-    url = str(row.get("卡片資料來源網址") or "").strip()
+    url, fallback_image = split_source_urls(row.get("卡片資料來源網址"))
 
     # 來源分三種，各走各的路徑：
     #   limitlesstcg.com -> 抓卡片頁，比對卡名後取頁面上的圖片
@@ -263,6 +287,8 @@ def process(row):
         return key, {"status": "needs_review",
                      "reason": "卡名不符（頁面 " + page_name + " / Excel " + excel_name + "）",
                      "url": url, "sourceId": src_id}
+    if not image_url:
+        image_url = fallback_image
     if not image_url:
         return key, {"status": "needs_review", "reason": "頁面上找不到卡圖網址",
                      "url": url, "sourceId": src_id}
