@@ -116,11 +116,19 @@ export async function loadStaticData() {
     card.printedTotal = setInfo.printedTotal;
     card.releaseDate = setInfo.releaseDate;
     const localCardImage = localImageMap.cards && localImageMap.cards[card.id];
-    card.remoteImageSmall = card.image ? `${card.image}/low.webp` : null;
+    // 遠端圖片有兩種格式，來源不同不能混用：
+    //   image        TCGdex 的基底網址，要自己接 /low.webp 與 /high.webp
+    //   imageDirect  LimitlessTCG 的完整圖檔網址，原樣使用（接了副檔名反而會壞）
+    card.remoteImageSmall = card.image
+      ? `${card.image}/low.webp`
+      : (card.imageDirect || null);
     card.imageSmall = localCardImage || card.remoteImageSmall;
-    // 大圖沒有本機版本，所以這裡一律是遠端。card.image 是 null 的那 4,064 張
-    // 本來會變成 null（詳情頁放大就成佔位圖），改成退回可用的小圖／內建縮圖。
-    card.imageLarge = card.image ? `${card.image}/high.webp` : (localCardImage || null);
+    // 大圖沒有本機版本，所以這裡一律是遠端。card.image 是 null 的那些卡
+    // 本來會變成 null（詳情頁放大就成佔位圖），依序退回：
+    // Limitless 直連網址 -> 本機檔案／內建縮圖 -> null
+    card.imageLarge = card.image
+      ? `${card.image}/high.webp`
+      : (card.imageDirect || localCardImage || null);
     // categoryId：沿用使用者可在「設定」調整的對照表，圖鑑徽章用這個。
     // categoryIds：js/cardCategories.js 那份分語言、可複數的規則，卡片分類頁用。
     // 兩者的預設值同源（categories.js 由 cardCategories.js 推導），所以不會互相矛盾；

@@ -127,6 +127,26 @@ export const CARD_CATEGORY_DEFS = [
   {
     id: "SHINY_ZH", label: "閃光", order: 20, color: "#59c3f0", manualOnly: true,
     description: "閃光。只能手動加入；與「光輝」是各自獨立的分類，系統不會替你推測歸屬。"
+  },
+
+  // ---------------------------------------------------------------------
+  // 機制分類。與稀有度並存，不互斥。
+  //
+  // 這兩個跟上面所有分類的性質不同：它們判斷的是**卡片機制**（卡名結尾），
+  // 不是稀有度。一張 TAG TEAM GX 同時會有自己的稀有度分類（例如 SR），
+  // 兩邊都會出現 —— 就像宣傳卡同時屬於 PR／PROMO 與它的稀有度分類一樣。
+  //
+  // 日月世代才有這兩種卡，劍盾之後就沒有了。
+  // ---------------------------------------------------------------------
+  {
+    id: "GX", label: "GX", order: 21, color: "#4dc4d6",
+    description: "GX 卡（日月世代）。依卡名結尾判定，與稀有度分類並存。"
+      + "TAG TEAM GX 同時屬於這一類與「TAG TEAM」。"
+  },
+  {
+    id: "TAG_TEAM", label: "TAG TEAM", order: 22, color: "#d67c4d",
+    description: "雙人組 GX（TAG TEAM GX，日月世代）。依卡名「含 & 且以 GX 結尾」判定，"
+      + "與稀有度分類並存，同時也會出現在「GX」分類。"
   }
 ];
 
@@ -156,7 +176,14 @@ export const RARITY_RULES = {
     "radiant rare": { category: "OTHER", confidence: "printed", note: "卡面 K（かがやくポケモン，S11a #009 實際核對）" },
     "ace spec rare": { category: "OTHER", confidence: "printed", note: "卡面 ACE（SV5K #062 實際核對）" },
     "black white rare": { category: "OTHER", confidence: "printed", note: "卡面 BWR（sv11B #174 實際核對）" },
-    "promo": { category: "PROMO", confidence: "printed", note: "宣傳卡" }
+    "promo": { category: "PROMO", confidence: "printed", note: "宣傳卡" },
+
+    // ---- 日月及更早世代（來自 step18 補進來的 27,798 張）----
+    // 這些字串在劍盾之後就不再出現。目前沒有逐張核對過那些世代的卡面代碼，
+    // 所以一律歸「其他」而不是猜一個等級 —— 依使用者指示，對不上的先放其他。
+    "rare holo": { category: "OTHER", confidence: "unresolved", note: "日月及更早世代的用語，尚未逐張核對卡面代碼" },
+    "none": { category: "OTHER", confidence: "unresolved", note: "來源把空值序列化成字串 \"None\"，不是真的稀有度" },
+    "無稀有度標記（卡面核對）": { category: "OTHER", confidence: "printed", note: "實際核對過卡面，該卡沒有印稀有度代碼" }
   },
   en: {
     "common": { category: "NORMAL", confidence: "tier", note: "英文版一般度數" },
@@ -192,7 +219,15 @@ export const RARITY_RULES = {
       category: "UNVERIFIED", confidence: "unresolved",
       note: "英文 Secret Rare 同時涵蓋彩虹卡與金卡兩種等級（swsh1 #203 Lapras VMAX 抽驗為彩虹卡），光看字串無法判斷該歸 HR 還是 UR，因此不猜"
     },
-    "promo": { category: "PROMO", confidence: "tier", note: "宣傳卡" }
+    "promo": { category: "PROMO", confidence: "tier", note: "宣傳卡" },
+
+    // ---- 日月及更早世代（來自 step18 補進來的 27,798 張）----
+    // 同上：沒有逐張核對過那些世代的卡面，一律歸「其他」，不猜等級。
+    "rare holo": { category: "OTHER", confidence: "unresolved", note: "日月及更早世代的用語，尚未逐張核對" },
+    "rare holo lv.x": { category: "OTHER", confidence: "unresolved", note: "鑽石珍珠世代的 LV.X 卡，尚未核對" },
+    "rare prime": { category: "OTHER", confidence: "unresolved", note: "HGSS 世代的 Prime 卡，尚未核對" },
+    "legend": { category: "OTHER", confidence: "unresolved", note: "HGSS 世代的 LEGEND 卡（上下兩張組成一張），尚未核對" },
+    "none": { category: "OTHER", confidence: "unresolved", note: "來源把空值序列化成字串 \"None\"，不是真的稀有度" }
   }
 };
 
@@ -243,10 +278,20 @@ function ruleFor(card) {
   return table[key] || null;
 }
 
-/** 這張卡的「稀有度分類」（單一），不含宣傳卡身分。對不到就是 UNVERIFIED。 */
+// 對照表認不出來時歸到哪一類。
+//
+// 原本是 UNVERIFIED（待確認）。補進日月／XY／BW 等世代之後，光是「來源根本
+// 沒給稀有度」的日版卡就有 6,246 張，全部堆在待確認會讓那一類變成垃圾桶。
+// 依使用者指示改成「其他」—— 這與更早的「無法確認就放待確認」相反，是刻意的
+// 決定，不是疏忽。
+//
+// 「待確認」分類保留著，仍然可以手動指定過去，只是不再是自動歸屬的預設。
+const UNMATCHED_CATEGORY = "OTHER";
+
+/** 這張卡的「稀有度分類」（單一），不含宣傳卡與機制身分。 */
 export function rarityCategoryId(card) {
   const rule = ruleFor(card);
-  return rule ? rule.category : "UNVERIFIED";
+  return rule ? rule.category : UNMATCHED_CATEGORY;
 }
 
 /** 分類理由，UI 與報告用。 */
@@ -255,12 +300,27 @@ export function rarityRuleInfo(card) {
   if (rule) return rule;
   const hasRarity = !!(card.originalRarity || "").trim();
   return {
-    category: "UNVERIFIED",
+    category: UNMATCHED_CATEGORY,
     confidence: "unresolved",
     note: hasRarity
-      ? `對照表沒有「${card.originalRarity}」這個稀有度（${card.language}），需要人工確認等級`
+      ? `對照表沒有「${card.originalRarity}」這個稀有度（${card.language}），尚未核對等級`
       : "來源資料沒有提供稀有度"
   };
+}
+
+/**
+ * 這張卡的機制分類（可複數）。與稀有度並存，不互斥。
+ *
+ * 判斷依據是 tags 欄位（由 step19 依卡名結尾產生），不是稀有度字串 ——
+ * 日月世代的 GX 卡稀有度字串跟一般卡一樣是 Ultra Rare／Secret Rare，
+ * 從稀有度看不出它是不是 GX。
+ */
+export function mechanicCategoryIds(card) {
+  const tags = card.tags || [];
+  const ids = [];
+  if (tags.includes("GX")) ids.push("GX");
+  if (tags.includes("TAG TEAM")) ids.push("TAG_TEAM");
+  return ids;
 }
 
 export function isPromoCard(card) {
@@ -280,6 +340,8 @@ export function classifyCard(card) {
   const rarity = rarityCategoryId(card);
   if (rarity !== "PROMO") ids.push(rarity);
   if (isPromoCard(card) || rarity === "PROMO") ids.push("PROMO");
+  // 機制分類與稀有度並存，做法同宣傳卡
+  ids.push(...mechanicCategoryIds(card));
   return Array.from(new Set(ids));
 }
 
@@ -303,6 +365,8 @@ export function resolveCategoryIds(card, overrideCategoryId) {
   const ids = [overrideCategoryId];
   // 原本就是宣傳卡的話，改了稀有度分類仍然保留宣傳卡身分
   if (isPromoCard(card)) ids.push("PROMO");
+  // 機制身分同理：手動改稀有度分類不會讓一張 GX 卡不再是 GX
+  ids.push(...mechanicCategoryIds(card));
   return Array.from(new Set(ids));
 }
 

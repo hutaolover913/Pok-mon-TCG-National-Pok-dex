@@ -37,7 +37,11 @@ import { CARD_CATEGORY_DEFS } from "./cardCategories.js";
 // RRR 的依據：日版 VMAX／VSTAR 的一般版面來源稀有度是 Triple rare，卡面印 RRR
 // （S10P #015 ヒードランVMAX、S12a #012 リーフィアVSTAR 實際核對），
 // 所以 Holo Rare VMAX／VSTAR 歸 RRR，不是 RR。
-export const BUILTIN_RARITY_MAPPING_VERSION = 6;
+// v7：補進日月／XY／BW 等世代的 27,798 張卡之後，新增舊世代的稀有度字串
+// （Rare Holo、Rare Holo LV.X、Rare PRIME、LEGEND、None），一律先歸「其他」，
+// 並把「對照表認不出來時」的預設從「待確認」改成「其他」。
+// 另新增 GX 與 TAG TEAM 兩個機制分類（靠 tags 判定，與稀有度並存）。
+export const BUILTIN_RARITY_MAPPING_VERSION = 7;
 
 // 分類 -> 涵蓋的原始稀有度字串（採用資料庫裡實際出現的大小寫寫法）。
 // 來源：data/cards.json 裡所有出現過的 originalRarity，逐一人工核對，
@@ -55,6 +59,7 @@ const RARITIES_BY_CATEGORY = {
     "Common", "Uncommon", "Rare", "Rare Holo"
   ],
   OTHER: [
+    "Rare Holo", "Rare Holo LV.X", "Rare PRIME", "LEGEND", "None",
     "Radiant Rare", "Amazing Rare", "ACE SPEC Rare", "Black White Rare",
     "Shiny rare", "Shiny rare V", "Shiny rare VMAX", "Shiny holo rare",
     "Shiny Ultra Rare", "Full Art Trainer", "Classic Collection",
@@ -72,6 +77,10 @@ const RARITIES_BY_CATEGORY = {
     "Holo Rare VMAX", "Holo Rare VSTAR",
     "Rare Holo VMAX", "Rare Holo VSTAR"
   ],
+  // GX 與 TAG TEAM 是機制分類，靠 cards.json 的 tags 判定，不靠稀有度字串，
+  // 所以這裡留空 —— 這份對照表只管「稀有度字串 -> 分類」。
+  GX: [],
+  TAG_TEAM: [],
   RADIANT_ZH: [],
   ACE: [],
   SSR: [],
