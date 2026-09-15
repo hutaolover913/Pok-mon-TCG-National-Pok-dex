@@ -189,3 +189,94 @@ export function onMeteredConnection() {
   if (c.saveData) return true;
   return typeof c.type === "string" && c.type === "cellular";
 }
+
+// ============================================================================
+// 接上渲染流程
+//
+// 先前這個模組寫好了卻沒有任何地方呼叫（只有設定頁用來顯示大小與清除），
+// 所以「看過一次就存起來、離線也看得到」其實從來沒有生效過。這一段把它接上。
+//
+// 做法刻意配合既有架構：頁面是用字串組 HTML 再一次塞進 innerHTML 的，
+// 沒辦法在 render 前非同步查快取換 src。所以改成掛在圖片的生命週期上：
+//
+//   載入成功（線上）-> 背景把它存進快取
+//   載入失敗（離線）-> utils.js 的 __imgFallback 在退回佔位圖之前先問快取
+//
+// 結果就是：線上照常，離線時看過的圖仍然看得到。
+// ============================================================================
+
+// 同時最多幾個背景快取工作。手機上開太多會跟畫面搶頻寬。
+const MAX_PARALLEL = 3;
+const queue = [];
+let running = 0;
+let budgetMb = DEFAULT_BUDGET_MB;
+let wifiOnly = false;
+let cachedCount = 0;
+
+function pump() {
+  while (running < MAX_PARALLEL && queue.length) {
+    const url = queue.shift();
+    running += 1;
+    cacheRemoteImage(url)
+      .then((ok) => {
+        if (!ok) return;
+        cachedCount += 1;
+        // 每存 50 張檢查一次容量，不必每張都掃
+        if (cachedCount % 50 === 0) evictIfOverBudget(budgetMb);
+      })
+      .catch(() => {})
+      .finally(() => {
+        running -= 1;
+        pump();
+      });
+  }
+}
+
+const seen = new Set();
+
+function enqueue(url) {
+  if (!url || seen.has(url) || !/^https?:/i.test(url)) return;
+  // 行動網路且使用者選了「只在 Wi-Fi 載入」時，不主動囤圖
+  if (wifiOnly && onMeteredConnection()) return;
+  seen.add(url);
+  queue.push(url);
+  pump();
+}
+
+/**
+ * 啟動快取。由 js/main.js 在 App 模式呼叫一次。
+ * @param {{budgetMb?: number, wifiOnly?: boolean}} opts
+ */
+export function initImageCache(opts = {}) {
+  if (typeof opts.budgetMb === "number") budgetMb = opts.budgetMb;
+  wifiOnly = !!opts.wifiOnly;
+
+  // load 事件不會冒泡，所以要用捕獲階段
+  document.addEventListener(
+    "load",
+    (e) => {
+      const img = e.target;
+      if (!img || img.tagName !== "IMG") return;
+      enqueue(img.currentSrc || img.src);
+    },
+    true
+  );
+
+  // 給 utils.js 的 __imgFallback 用：離線時在退回佔位圖之前先問這裡
+  window.__imgCacheLookup = async (remoteUrl) => {
+    try {
+      return await getCachedImageUrl(remoteUrl);
+    } catch {
+      return null;
+    }
+  };
+
+  // 開機時清一次超出預算的部分
+  evictIfOverBudget(budgetMb).catch(() => {});
+}
+
+/** 設定頁改了預算或 Wi-Fi 選項後呼叫，不必重開 App。 */
+export function updateImageCachePrefs({ budgetMb: b, wifiOnly: w }) {
+  if (typeof b === "number") budgetMb = b;
+  if (typeof w === "boolean") wifiOnly = w;
+}

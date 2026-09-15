@@ -196,14 +196,20 @@ def build_data():
 
 
 def build_images():
-    """複製 build_thumbs.py 產生的內建縮圖。"""
+    """複製 build_thumbs.py 產生的內建縮圖（卡圖與寶可夢立繪）。
+
+    立繪也要內建的原因：原本走 raw.githubusercontent.com，平均 126 KB／張，
+    圖鑑首頁一次顯示 60 隻就要抓 7.4 MB，行動網路上很慢。縮圖後平均 9.6 KB。
+    """
     src = os.path.join(HERE, "thumbs")
     if not os.path.isdir(src):
         print("  ! 找不到 android-app/thumbs/，先跑 python android-app/build_thumbs.py")
-        print("    （沒有內建縮圖的話，那 4,064 張沒有遠端來源的卡會顯示佔位圖）")
+        print("    （沒有內建縮圖的話，那 4,064 張沒有遠端來源的卡會顯示佔位圖，")
+        print("      而且圖鑑首頁的立繪每次都要連網抓）")
         return 0, 0
 
-    dst = os.path.join(WWW, "images", "cards")
+    # thumbs/cards -> www/images/cards，thumbs/species -> www/images/species
+    dst = os.path.join(WWW, "images")
     shutil.copytree(src, dst, dirs_exist_ok=True)
     total = 0
     count = 0
@@ -387,7 +393,7 @@ def main():
     print("  css/               1 個檔案   %s" % human(sizes["css"]))
     print("  icons/                        %s" % human(sizes["icons"]))
     print("  data/          %5d 個檔案   %s" % (len(DATA_FILES), human(sizes["data"])))
-    print("  images/cards/  %5d 個檔案   %s  （官方 CDN 沒有的內建卡圖）"
+    print("  images/        %5d 個檔案   %s  （內建卡圖 + 寶可夢立繪）"
           % (thumb_count, human(sizes["images"])))
     print("  index.html                    %s" % human(sizes["index.html"]))
     if manual:

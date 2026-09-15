@@ -97,6 +97,16 @@ async function boot() {
   }
 
   if (app) {
+    // 圖片快取：看過的遠端卡圖存進本機，離線時還看得到。
+    // 這個模組先前寫好了卻沒有任何地方呼叫，等於完全沒生效 —— 這裡接上。
+    import("./imageCache.js").then(async (m) => {
+      const [budgetMb, wifiOnly] = await Promise.all([
+        getSetting(m.IMAGE_PREFS.budgetMb, m.DEFAULT_BUDGET_MB),
+        getSetting(m.IMAGE_PREFS.wifiOnly, false)
+      ]);
+      m.initImageCache({ budgetMb, wifiOnly });
+    }).catch(() => {});
+
     // 返回鍵、狀態列、啟動畫面。失敗不影響 App 本身能不能用。
     import("./nativeShell.js").then((m) => m.initNativeShell()).catch(() => {});
   } else if ("serviceWorker" in navigator) {

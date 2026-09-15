@@ -48,6 +48,24 @@ if (typeof window !== "undefined" && !window.__imgFallback) {
       img.src = remote;
       return;
     }
+
+    // App 版：遠端也抓不到（通常是離線）時，先問本機的圖片快取。
+    // window.__imgCacheLookup 由 js/imageCache.js 在 App 模式掛上；
+    // 網頁版沒有這個函式，行為與改版前完全相同。
+    if (remote && !img.dataset.cacheTried && typeof window.__imgCacheLookup === "function") {
+      img.dataset.cacheTried = "1";
+      window.__imgCacheLookup(remote).then((blobUrl) => {
+        if (blobUrl) {
+          img.src = blobUrl;
+        } else {
+          img.onerror = null;
+          img.src = PLACEHOLDER_SVG;
+          img.classList.add("img-fallback");
+        }
+      });
+      return;
+    }
+
     img.onerror = null;
     img.src = PLACEHOLDER_SVG;
     img.classList.add("img-fallback");

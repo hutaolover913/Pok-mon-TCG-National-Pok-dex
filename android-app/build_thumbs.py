@@ -15,9 +15,17 @@ LimitlessTCG 補圖回來的，只存在本機 images/ 資料夾，官方 CDN �
 
 實測 40 張抽樣：平均 16.4 KB，4,064 張約 65 MB。
 
+-- 寶可夢立繪也要內建 --------------------------------------------------------
+圖鑑首頁的立繪原本走 raw.githubusercontent.com，平均 126 KB／張（官方高解析
+原圖，完全沒壓縮），首頁一次顯示 60 隻就要抓 7.4 MB，在行動網路上很慢。
+
+縮成 245px webp 之後平均 9.6 KB，1,025 張總共約 9.6 MB，內建進去之後首頁
+完全不用連網。立繪在格狀清單裡實際顯示約 140px 寬，245px 綽綽有餘。
+
 輸出：
-    android-app/thumbs/            縮圖
-    android-app/app_image_map.json 卡片 ID -> 縮圖相對路徑
+    android-app/thumbs/cards/      卡圖縮圖
+    android-app/thumbs/species/    立繪縮圖
+    android-app/app_image_map.json 卡片 ID／圖鑑編號 -> 縮圖相對路徑
 """
 
 import json
@@ -31,11 +39,50 @@ except ImportError:
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-OUT_DIR = os.path.join(HERE, "thumbs")
+OUT_DIR = os.path.join(HERE, "thumbs", "cards")
+OUT_SPECIES = os.path.join(HERE, "thumbs", "species")
 OUT_MAP = os.path.join(HERE, "app_image_map.json")
 
 WIDTH = 245
 QUALITY = 72
+
+
+def make_thumb(src_path, dst_path, width=WIDTH, quality=QUALITY):
+    """縮圖成 webp。透明底的 PNG 先合成白底，避免 WEBP 轉檔時出現黑邊。"""
+    im = Image.open(src_path)
+    if im.mode in ("RGBA", "LA", "P"):
+        im = im.convert("RGBA")
+        bg = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        bg.alpha_composite(im)
+        im = bg
+    else:
+        im = im.convert("RGB")
+    h = max(1, int(im.height * width / im.width))
+    im.resize((width, h), Image.LANCZOS).save(dst_path, "WEBP", quality=quality, method=6)
+
+
+def build_species(local_species):
+    """寶可夢立繪縮圖。原圖是 PokeAPI 的官方美術圖，平均 126 KB。"""
+    os.makedirs(OUT_SPECIES, exist_ok=True)
+    mapping = {}
+    total = 0
+    missing = []
+    for dex, rel in sorted(local_species.items(), key=lambda kv: int(kv[0])):
+        src = os.path.join(ROOT, rel)
+        if not os.path.exists(src):
+            missing.append(dex)
+            continue
+        name = "%s.webp" % dex
+        dst = os.path.join(OUT_SPECIES, name)
+        if not os.path.exists(dst):
+            try:
+                make_thumb(src, dst)
+            except Exception as exc:
+                missing.append("%s (%s)" % (dex, str(exc)[:40]))
+                continue
+        mapping[dex] = "images/species/" + name
+        total += os.path.getsize(dst)
+    return mapping, total, missing
 
 
 def main():
@@ -50,7 +97,9 @@ def main():
             "先跑 python data/pipeline/step6_build_image_map.py 重建。"
         )
     with open(local_map_path, encoding="utf-8") as f:
-        local_cards = json.load(f).get("cards", {})
+        local_map = json.load(f)
+    local_cards = local_map.get("cards", {})
+    local_species = local_map.get("species", {})
 
     # 只處理「官方 CDN 沒有」的那些卡。有遠端網址的一律走遠端，不佔 App 體積。
     targets = [c for c in cards if not c.get("image")]
@@ -96,12 +145,22 @@ def main():
         if done % 500 == 0:
             print("  %d/%d  %.1f MB" % (done, len(targets), total_bytes / 1048576.0))
 
+    print()
+    print("寶可夢立繪：%d 隻" % len(local_species))
+    species_map, species_bytes, species_missing = build_species(local_species)
+
     with open(OUT_MAP, "w", encoding="utf-8", newline="\n") as f:
-        json.dump({"cards": mapping}, f, ensure_ascii=False)
+        json.dump({"cards": mapping, "species": species_map}, f, ensure_ascii=False)
 
     print()
-    print("完成 %d 張，共 %.1f MB（平均 %.1f KB）"
+    print("卡圖   %5d 張，共 %6.1f MB（平均 %.1f KB）"
           % (done, total_bytes / 1048576.0, total_bytes / done / 1024.0 if done else 0))
+    print("立繪   %5d 隻，共 %6.1f MB（平均 %.1f KB）"
+          % (len(species_map), species_bytes / 1048576.0,
+             species_bytes / len(species_map) / 1024.0 if species_map else 0))
+    print("合計                %6.1f MB" % ((total_bytes + species_bytes) / 1048576.0))
+    if species_missing:
+        print("立繪缺少 %d 隻：%s" % (len(species_missing), species_missing[:5]))
     if missing:
         print("本機找不到原圖：%d 張 —— 這些卡在 App 裡會顯示佔位圖" % len(missing))
         for cid in missing[:10]:

@@ -21,7 +21,7 @@ import { SET_SORT, getSetSort, setSetSort } from "../seriesCatalog.js";
 import { applyTheme } from "../theme.js";
 import { saveJson, pickJsonFile } from "../saveFile.js";
 import { escapeHtml, showToast } from "../utils.js";
-import { getImageCacheStatus, clearImageCache, IMAGE_PREFS } from "../imageCache.js";
+import { getImageCacheStatus, clearImageCache, updateImageCachePrefs, IMAGE_PREFS } from "../imageCache.js";
 
 const LANG_CHOICES = [
   ["all", "全部語言"],
@@ -198,6 +198,8 @@ function bind() {
 
   document.getElementById("as-wifionly").addEventListener("change", async (e) => {
     await setSetting(IMAGE_PREFS.wifiOnly, e.target.checked);
+    // 立刻生效，不必重開 App
+    updateImageCachePrefs({ wifiOnly: e.target.checked });
     showToast(e.target.checked ? "行動網路下不會再下載新卡圖" : "已允許用行動網路載入卡圖");
   });
 
