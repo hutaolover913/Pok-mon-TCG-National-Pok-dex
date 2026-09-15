@@ -45,10 +45,14 @@ export async function renderSettings() {
       <h2>資料收錄範圍與來源說明</h2>
       <div class="info-box">
         <p><strong>全國圖鑑資料</strong>：來自 PokéAPI（pokeapi.co）公開資料，屬開放資料、免金鑰。內含全國圖鑑編號、繁體中文與英文名稱、世代、傳說／幻獸標記。目前收錄第 1–9 世代、共 1025 隻寶可夢（不含地區形態、超級進化等變體，這些會歸在對應本體寶可夢下管理，不會另計圖鑑編號）。</p>
-        <p><strong>PTCG 卡片資料</strong>：來自 <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a>（tcgdex.dev，開放資料、免金鑰）。實際匯入範圍為日文版「剣と盾」「スカーレット&バイオレット」「ポケモンカードゲーム MEGA」系列，以及英文版「Sword &amp; Shield」「Scarlet &amp; Violet」「Mega Evolution」系列，共 <strong>15,846 張卡片</strong>（日文 7,397 張、英文 8,449 張），明確排除 Pokémon TCG Pocket。每張卡片保留來源的卡包、卡號、原始稀有度（TCGdex 資料庫用語，非卡面印刷文字）與圖鑑編號，AR／SAR 分類日文英文皆有收錄，CHR／CSR 目前僅見於日文版（VMAX クライマックス等）。這仍<strong>不是官方歷年全卡表</strong>：TCGdex 本身日文卡片文字資料完整度約 71%（詳見 tcgdex.dev/status），因此約 2,354 張日文卡片會顯示「稀有度資料尚未提供」。完整匯入報告見專案內 <code>data/pipeline/logs/</code>。</p>
-        <p><strong>圖片</strong>：寶可夢立繪與卡圖已下載到本機（<code>images/</code> 資料夾），不再即時 hotlink 遠端網址。目前 <strong>15,662 / 15,846 張卡片（98.8%）與全部 1,025 張寶可夢立繪都有圖片</strong>。來源分別是：TCGdex 11,782 張、<a href="https://limitlesstcg.com" target="_blank" rel="noopener">LimitlessTCG</a> 補回 3,880 張（英文 474、日文 3,406）。所有從 LimitlessTCG 補的圖，都是先抓該卡的頁面、比對頁面上顯示的卡名與卡包／卡號一致才採用，不是用名稱亂猜；全部圖片也都經過解碼驗證。</p>
-        <p>另外從 <code>exports/missing_images</code> 補圖包（來源 tcgcollector.com）再匯入 <strong>139 張</strong>：匯入前每張都重新獨立複驗過卡包代碼、印刷卡號、以及「用圖鑑編號反查英文名是否出現在來源標題」的跨語言比對，還會核對檔案 SHA-256，全部通過才採用。</p>
-        <p>剩下的 <strong>36 張卡片</strong>（My First Battle 34 張、SVP Jumbo 1 張、MEP 1 張）在兩個資料庫之間編號規則不同，無法機械式確認是同一個版本。（原本是 44 張，其中 8 張 MC 基本能量後來在 LimitlessTCG 找到單字母編號的對應卡頁，已改由可驗證來源取得。）這批已依指示<strong>直接套用</strong>，卡包與卡名都核對過，但<strong>版本未經核對</strong>：其中 10 張在來源有一個以上的印刷版本（例如牌組限定的藍框版與一般版），系統取來源編號最小的那一版，其他版本預設是收合的，該卡的卡包資訊旁會有一顆小按鈕「換版本」，按下去才展開候選圖，看圖確認後按「改用這張」即可換掉（按卡片圖上的「×」可恢復成預設版本）。至此卡圖覆蓋率為 <strong>15,846／15,846（100%）</strong>。</p>
+        <p><strong>PTCG 卡片資料</strong>：來自 <a href="https://tcgdex.dev" target="_blank" rel="noopener">TCGdex</a> 與 <a href="https://limitlesstcg.com" target="_blank" rel="noopener">LimitlessTCG</a>（皆為開放資料、免金鑰），共 <strong>43,644 張卡片</strong>（日文 22,577 張、英文 21,067 張），分屬 <strong>487 個卡包</strong>，明確排除 Pokémon TCG Pocket。每張卡片保留來源的卡包、卡號、原始稀有度（來源資料庫用語，<strong>非卡面印刷文字</strong>）與圖鑑編號。</p>
+        <p>這批資料分兩個階段建立，品質不同，這裡如實區分：</p>
+        <ul class="hint-text">
+          <li><strong>15,846 張（逐一核對過）</strong>：日文版「剣と盾」「スカーレット&amp;バイオレット」「ポケモンカードゲーム MEGA」與英文版對應的三個系列。稀有度對照是<strong>實際打開卡圖、讀卡面右下角印刷代碼</strong>核對出來的。</li>
+          <li><strong>27,798 張（尚未逐張核對）</strong>：日月 7,056、XY 4,733、BW 2,770，其餘為 ex／DP／PL／base 等更早世代與現有系列的缺卡。卡名、卡包、卡號都比對過來源才採用，但<strong>那些世代的卡面稀有度代碼還沒核對</strong>，所以 <code>Rare Holo</code>、<code>Rare Holo LV.X</code>、<code>Rare PRIME</code>、<code>LEGEND</code> 這類舊世代用語一律先歸「其他」，不猜等級。</li>
+        </ul>
+        <p><strong>圖片</strong>：目前 <strong>37,250 / 43,644 張（85.3%）</strong>有圖可顯示，其中本機已下載 15,846 張、TCGdex 遠端 11,608 張、LimitlessTCG 遠端 9,796 張。<strong>剩下 6,394 張完全沒有圖片來源</strong>（多為較舊的日版卡，TCGdex 只有文字沒有圖），會顯示替代畫面，不會空白或報錯。寶可夢立繪 1,025 張全部都有。</p>
+        <p>所有從 LimitlessTCG 取得的資料，都是先抓該卡的頁面、比對頁面上顯示的卡名與卡包／卡號一致才採用，不是用名稱亂猜。</p>
         <p>本站沒有取得 kajiku.tw 或 pokecardex.com 的公開 API，因此無法直接匯入兩者的卡表資料；App 內建的分類徽章（AR／SR／SAR／CSR／CHR／HR／UR／PR／PROMO）設計參考了這兩個網站常見的收藏分類方式，但實際卡片資料庫與稀有度對照規則都是獨立建立、逐一核對卡面印刷代碼得出的。</p>
         <p>若某隻寶可夢或某個分類目前沒有任何卡片資料，代表「尚未收錄」，<strong>不代表</strong>官方未發行過該分類的卡片。</p>
       </div>

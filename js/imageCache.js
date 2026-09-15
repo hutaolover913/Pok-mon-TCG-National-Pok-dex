@@ -114,6 +114,47 @@ async function touch(url) {
 }
 
 /**
+ * 把遠端圖抓成 Blob。
+ *
+ * 先用一般的 fetch；失敗時（多半是 CORS）改走 Capacitor 的原生 HTTP。
+ *
+ * 為什麼需要第二條路：圖片用 <img src> 顯示不需要 CORS，但要把它存進
+ * IndexedDB 就得真的讀到位元組，那就會受 CORS 管。圖床的 CORS 設定不是
+ * 我們能控制的，只要有一天壞掉（或中間有代理多塞一個標頭），整個快取就
+ * 靜靜失效 —— 而使用者只會覺得「怎麼還是很慢」，看不出原因。
+ *
+ * CapacitorHttp 走的是原生 Android 的 HTTP 堆疊，不經過 WebView 的
+ * 同源政策，所以不會有這個問題。它只在 App 模式存在，網頁版會直接跳過。
+ */
+async function fetchImageBlob(url) {
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (res.ok) {
+      const blob = await res.blob();
+      if (blob.size) return blob;
+    }
+  } catch {
+    // 落到下面的原生路徑
+  }
+
+  const http = window.Capacitor && window.Capacitor.CapacitorHttp;
+  if (!http || typeof http.get !== "function") return null;
+  try {
+    const res = await http.get({ url, responseType: "blob" });
+    if (!res || res.status >= 400 || !res.data) return null;
+    // 原生端回傳的是 base64 字串
+    const bin = atob(String(res.data));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const type = (res.headers && (res.headers["Content-Type"] || res.headers["content-type"])) || "image/webp";
+    const blob = new Blob([bytes], { type });
+    return blob.size ? blob : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 抓一張遠端圖並存進快取。已經有就不重抓。
  * 失敗不丟例外 —— 抓不到圖只是看不到圖，不該讓畫面壞掉。
  */
@@ -126,10 +167,8 @@ export async function cacheRemoteImage(remoteUrl) {
     );
     if (existing) return true;
 
-    const res = await fetch(remoteUrl, { mode: "cors" });
-    if (!res.ok) return false;
-    const blob = await res.blob();
-    if (!blob.size) return false;
+    const blob = await fetchImageBlob(remoteUrl);
+    if (!blob) return false;
 
     const t = db.transaction([STORE], "readwrite");
     t.objectStore(STORE).put({ url: remoteUrl, blob, bytes: blob.size, lastUsed: Date.now() });
