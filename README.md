@@ -399,6 +399,91 @@ Crown Zenith 與 Crown Zenith Galarian Gallery 相鄰且順序固定；切成由
 目前 106 個卡包**全部都有有效的 YYYY-MM-DD 發售日期**，沒有待確認的項目 ——
 但機制已經做好，之後匯入缺日期的卡包會自動落到最後並標示。
 
+## Android App 版
+
+`android-app/` 底下是**收藏專用**的 Android 版本：可以瀏覽、搜尋、篩選、記錄收藏，
+但**不能**修改卡片資料或分類。卡片分類、匯入匯出、資料整理一律留在電腦版。
+
+完整說明見 [`android-app/README.md`](android-app/README.md)，這裡只講重點。
+
+### 一份原始碼，兩種模式
+
+App 版**不是**網頁版的複本 —— 兩邊共用 `js/` 底下同一份程式碼，差異全部由
+`js/appMode.js` 的旗標控制，所以不會出現「改了網頁版忘了改 App 版」。
+
+`android-app/build_www.py` 只做三件事：**複製、省略、換樁**，不改寫任何 JS 邏輯。
+
+判定 App 模式有兩個獨立訊號，任一成立即可：`Capacitor.isNativePlatform()`，
+或 `build_www.py` 注入 `www/index.html` 的 `<meta name="ptcg-app-mode">`。
+**根目錄的 `index.html` 永遠不會有那個 meta tag**，所以網頁版一定是 `false`：
+
+```bash
+grep -c 'ptcg-app-mode' index.html      # 必須是 0
+```
+
+### 三層鎖定
+
+一般使用者不能改分類或卡片主資料。這不是把按鈕藏起來，是三層各自獨立的阻擋：
+
+1. **檔案不進 APK** —— `settings.js`、`exportPage.js`、`exporters.js`、
+   `categoryFixes.js`、`rrRegroup.js`、`vendor/`、`sw.js` 都不複製；
+   `categoryPicker.js` 與 `imageUpload.js` 換成保留 export 名稱的空實作。
+2. **路由不註冊** —— `APP_ROUTES` 沒有 `/export`，`/settings` 指向一般設定。
+   手動輸入 `#/export` 會得到「這個畫面在 App 版沒有提供」。
+3. **資料層守衛** —— `js/db.js` 的 `tx()` 是全專案唯一開啟 IndexedDB 交易的地方，
+   19 個寫入點都走它。守在那裡一次擋掉全部 11 個策展寫入函式，連以後新增的
+   也自動涵蓋，而且從 console 直接呼叫模組 API 一樣擋得住。
+
+被擋的 store：`categories`、`cardCategoryOverrides`、`cardFieldOverrides`、`customImages`。
+照常可寫：`cardOwnership`、`manualFlags`、`meta`。
+
+**誠實說明它擋不住什麼**：這不是沙箱。任何人在自己的裝置上用 DevTools 直接
+`indexedDB.open("pokecard-dex")` 仍可繞過 —— 所有用 web 技術做的 App 都有這個限制。
+資料是裝置本機、單一使用者、沒有後端，這個程度是相稱的。
+
+### 手動分類怎麼進到 App
+
+App 的 IndexedDB 與電腦版**不同源**（`https://localhost` vs `http://localhost:8811`），
+資料過不去；而且守衛禁止寫入策展資料，也不能靠匯入塞進去。
+
+所以改成**建置時烤成唯讀靜態檔**：電腦版「設定 → 匯出 JSON 備份」存成
+`android-app/curation-source.json`，`build_www.py` 從裡面取出 `categoryOverrides`
+與 `fieldOverrides`，寫成 `www/data/manual_overrides.json`。對 App 來說是唯讀的，
+使用者改不了，但顯示的分類與電腦版一致。**守衛一行都不用鬆綁。**
+
+> 在電腦版改了分類之後，APK 裡那份不會自己跟著變 —— 要重新匯出、重跑
+> `build_www.py`、重新建置。
+
+### 卡圖與立繪
+
+| 來源 | 數量 | 做法 |
+|---|---|---|
+| 官方 CDN（`assets.tcgdex.net`） | 11,782 張卡 | 遠端載入，`js/imageCache.js` 以 LRU 快取到手機 |
+| 只有本機（LimitlessTCG 補圖） | 4,064 張卡 | 縮成 245px webp 內建（64.4 MB） |
+| 寶可夢立繪 | 1,025 隻 | 縮成 245px webp 內建（9.8 MB） |
+
+立繪一定要內建的原因：原本走 `raw.githubusercontent.com`，平均 126 KB／張
+（官方高解析原圖完全沒壓縮），圖鑑首頁一次顯示 60 隻就要抓 7.4 MB。
+
+APK 約 **80 MB**。
+
+### 建置
+
+需要 Node.js 22+ 與 Android Studio（自帶 JDK，但 Gradle 8.14.3 不支援 Java 25，
+所以另外用 Temurin JDK 21，路徑寫死在 `android/gradle.properties`）。
+
+```bash
+python android-app/build_thumbs.py      # 只需跑一次
+python android-app/build_www.py
+cd android-app && npx cap sync && cd android && ./gradlew assembleDebug
+```
+
+產出：`android-app/android/app/build/outputs/apk/debug/app-debug.apk`
+
+日常只改網頁程式碼的話，`python build_www.py && npx cap sync` 就夠，不必碰 npm。
+
+---
+
 ## 專案結構
 
 ```
@@ -426,7 +511,19 @@ pokedex-app/
     cards.legacy-v1.json     第一版示範資料存檔（僅供對照，App 不會讀取）
     pipeline/                TCGdex 匯入流程腳本，見下方 pipeline/README.md
   icons/                  PWA 圖示（make_icons.py 產生）
+  android-app/            Android App 版（收藏專用，見 android-app/README.md）
+    build_thumbs.py        產生內建縮圖（卡圖 4,064 + 立繪 1,025）
+    build_www.py            組裝 www/，並自我檢查鎖定有沒有生效
+    preview.py               預覽伺服器（8899 埠，可讓手機連內網試用）
+    capacitor.config.json     appId tw.shinfu.ptcgdex、名稱「PTCG圖鑑」
+    android/                   Capacitor 產生的 Gradle 專案
 ```
+
+> `js/` 底下另有幾個模組是網頁版與 App 版共用、但只在 App 模式生效的：
+> `appMode.js`（旗標）、`routes.js`（分模式的路由表）、`appLabels.js`（顯示用詞覆寫）、
+> `imageCache.js`（遠端卡圖快取）、`saveFile.js`（WebView 安全存檔）、
+> `nativeShell.js`（返回鍵／啟動畫面）、`viewState.js`（捲動位置保留）。
+> 在網頁版它們全部是 no-op。
 
 ## 資料模型重點
 
@@ -449,10 +546,28 @@ pokedex-app/
 - 圖片本機快取：寶可夢立繪與卡圖實際下載到 `images/` 資料夾，不再即時 hotlink；缺圖卡片直接顯示替代畫面，不會嘗試載入無效網址（詳見上方「圖片：本機快取」一節）。
 - 手動上傳替代圖片：寶可夢詳細頁可以幫任一隻寶可夢或任一張卡片自行上傳圖片（會驗證是否為可解碼的圖片檔），優先權高於系統內建圖片，也可以隨時移除復原；圖片存在 IndexedDB，跟收藏紀錄一樣不會因重新整理而遺失。
 - PWA：manifest、Service Worker（app shell 網路優先＋離線快取，資料檔不預先快取以免安裝失敗）、可安裝圖示。
+- **Android App 版**（`android-app/`）：收藏專用，三層鎖定擋住分類與卡片主資料的修改，
+  電腦版整理好的手動分類以唯讀靜態檔的形式烤進 APK；內建 4,064 張卡圖與 1,025 隻立繪；
+  遠端卡圖自動快取到本機，離線可看；返回鍵、旋轉、捲動位置保留都已處理。
 
 ## 尚未完成 / 已知限制
 
-- 卡片資料庫不含 Sword & Shield 世代之前的系列（XY、SM 及更早），也不含繁體中文版卡片（TCGdex 繁中資料完整度目前很低，見 `pokedex.dev/status`）。
+- **卡片資料庫目前只有六個系列**：英文版 Sword & Shield／Scarlet & Violet／Mega Evolution，
+  日文版 剣と盾／スカーレット&バイオレット／ポケモンカードゲーム MEGA，共 15,846 張。
+  **不含日月（SM）、XY、BW 及更早的世代**，也不含繁體中文版卡片（TCGdex 繁中完整度很低）。
+
+  > ⚠️ **有一批資料已經抓好但尚未合併。** 依 `PTCG_缺少卡片清單.xlsx` 跑過的補卡流程
+  > 成功取得 **27,798 張**（日月 7,056、XY 4,733、BW 2,770，其餘為 ex／DP／PL／base 等
+  > 更早期與現有系列的缺卡），結果存在 `data/pipeline/logs/import_missing_cards.json`，
+  > **但從未合併進 `cards.json`**。合併後卡表會到約 43,600 張。
+  >
+  > 合併前要先處理兩件事：
+  > 1. **6,394 張沒有圖片來源** —— TCGdex 對較舊的日版卡常常只有文字沒有圖。
+  > 2. **稀有度對照要補** —— 現有對照表是針對劍盾／朱紫／MEGA 核對出來的。
+  >    那批資料有 9 種字串對不上（7,494 張），其中 6,246 張日版根本是空白；
+  >    另有 `Rare Holo`、`Rare Holo LV.X`、`Rare PRIME`、`LEGEND` 等舊世代用語。
+  >    卡片機制上還多出 GX 999 張、TAG TEAM GX 263 張、LV.X 28 張、Prime 21 張、
+  >    LEGEND 18 張，這些在現有分類體系裡沒有對應的位置。
 - 日文卡片有約 31% 缺稀有度資料，這是 TCGdex 來源本身的完整度限制，App 會誠實顯示「稀有度資料尚未提供」，不會假裝有資料。
 - 圖片方面仍有 184 張卡片（日文 109、英文 75）沒有圖，主因是密卡編號在兩個資料庫間不一致、無法確認版本（見上方「圖片：本機快取」一節）；可以自行上傳替代圖片補上。
 - 沒有跨裝置同步／雲端備份，只能靠「匯出 JSON 備份」手動搬移。
